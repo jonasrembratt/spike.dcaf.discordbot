@@ -5,7 +5,7 @@ using DCAF.DiscordBot.Model;
 
 namespace DCAF.DiscordBot.Policies
 {
-    public class SetMembersAwolPolicy : Policy
+    public class SetAwolPolicy : Policy
     {
         readonly IPersonnel _personnel;
         readonly EventCollection _events;
@@ -14,8 +14,7 @@ namespace DCAF.DiscordBot.Policies
 
         public override async Task<Outcome> ExecuteAsync()
         {
-            return Outcome.Success();
-            
+            return Outcome.Fail(new Exception("!POLICY IS NOT IMPLEMENTED YET!"));
             // work backwards, from last event to older ones ...
 
             // var eventsArray = _events.ToArray(); todo
@@ -24,11 +23,15 @@ namespace DCAF.DiscordBot.Policies
             //     var evt = eventsArray[i];
             //     IEnumerable<> getSilentMembers
             // }
-            
         }
 
-        public SetMembersAwolPolicy(EventCollection events, IPersonnel personnel)
-        : base("apply-awol")
+        public override Task<Outcome> ResetCacheAsync()
+        {
+            return Task.FromResult(Outcome.Fail(new Exception("!POLICY IS NOT IMPLEMENTED YET!")));
+        }
+
+        public SetAwolPolicy(EventCollection events, IPersonnel personnel, PolicyDispatcher dispatcher)
+        : base("apply-awol", dispatcher)
         {
             _events = events;
             _personnel = personnel;

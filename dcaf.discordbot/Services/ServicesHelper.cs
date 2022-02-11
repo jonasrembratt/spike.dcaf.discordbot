@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using dcaf.discordbot.Discord;
 using DCAF.DiscordBot.Google;
@@ -51,14 +52,24 @@ namespace DCAF.DiscordBot.Services
             if (!loadEventsOutcome)
                 throw new Exception("Could not load events from file");
 
-            var events = loadEventsOutcome.Value!;
-            collection.AddSingleton(p =>
-            {
-                var personnel = p.GetRequiredService<IPersonnel>();
-                var guild = p.GetRequiredService<DiscordGuild>();
-                return new PolicyDispatcher(new UpdateMemberIdsPolicy(personnel, guild));
-            });
+            collection.AddSingleton(p => loadEventsOutcome.Value!);
+            collection.AddSingleton<PolicyDispatcher>();
+            collection.AddSingleton<SynchronizeIdsPolicy>();
+            collection.AddSingleton<ResetPoliciesPolicy>();
+            collection.AddSingleton<SetAwolPolicy>();
             return collection;
+        }
+
+        public static void ActivatePolicies(this IServiceProvider provider)
+        {
+            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                var policyTypes = assembly.GetTypes().Where(t => !t.IsAbstract && typeof(Policy).IsAssignableFrom(t));
+                foreach (var type in policyTypes)
+                {
+                    provider.GetService(type);
+                }
+            }
         }
     }
 }

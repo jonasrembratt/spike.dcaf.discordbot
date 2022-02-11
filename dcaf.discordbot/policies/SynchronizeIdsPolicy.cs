@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -8,7 +7,7 @@ using DCAF.DiscordBot.Model;
 
 namespace DCAF.DiscordBot.Policies
 {
-    public class UpdateMemberIdsPolicy : Policy
+    public class SynchronizeIdsPolicy : Policy
     {
         const string PolicyIdent = "sync-ids";
         
@@ -37,6 +36,25 @@ namespace DCAF.DiscordBot.Policies
             return await _personnel.Update(updatedMembers.ToArray());
         }
 
+        public override async Task<Outcome> ResetCacheAsync()
+        {
+            var tasks = new Task[]
+            {
+                _personnel.ResetAsync(),
+                _discordGuild.ResetAsync()
+            };
+            await Task.WhenAll(tasks);
+            foreach (var task in tasks)
+            {
+                if (task is not Task<Outcome> outcomeTask)
+                    continue;
+                
+                if (!outcomeTask.Result)
+                    return Outcome.Fail(outcomeTask.Result.Exception!);
+            }
+            return Outcome.Success();
+        }
+
         async Task<Outcome<ulong>> tryGetMemberDiscordIdAsync(Member member)
         {
             var outcome = await _discordGuild.GetDiscordUserWithName(member.DiscordName!);
@@ -45,10 +63,11 @@ namespace DCAF.DiscordBot.Policies
                 : Outcome<ulong>.Fail(outcome.Exception!);
         }
 
-        public UpdateMemberIdsPolicy(
+        public SynchronizeIdsPolicy(
             IPersonnel personnel, 
-            DiscordGuild discordGuild)
-        : base(PolicyIdent)
+            DiscordGuild discordGuild,
+            PolicyDispatcher dispatcher)
+        : base(PolicyIdent, dispatcher)
         {
             _personnel = personnel;
             _discordGuild = discordGuild;

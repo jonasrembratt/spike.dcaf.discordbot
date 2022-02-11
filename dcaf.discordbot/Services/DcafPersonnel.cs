@@ -13,11 +13,9 @@ namespace DCAF.DiscordBot.Services
 {
     public class DcafPersonnel : IPersonnel
     {
-        readonly TaskCompletionSource<List<Member>> _getMembersTcs = new();
+        TaskCompletionSource<List<Member>> _getMembersTcs = new();
+        DateTime _lastReadMembers = DateTime.MinValue;
         readonly GooglePersonnelSheet _sheet;
-        readonly Dictionary<Member, int> _sheetRowNoIndex = new();
-        readonly Dictionary<string, Member> _idIndex = new();
-        readonly Dictionary<string, Member> _emailIndex = new();
         readonly Dictionary<string, int> _columnIndex = new()
         {
             [nameof(Member.Id)] = 13,
@@ -28,6 +26,9 @@ namespace DCAF.DiscordBot.Services
             [nameof(Member.Email)] = 9,
             [nameof(Member.Status)] = 10,
         };
+        Dictionary<Member, int> _sheetRowNoIndex = new();
+        Dictionary<string, Member> _idIndex = new();
+        Dictionary<string, Member> _emailIndex = new();
         List<Member>? _members;
 
         public async Task<Outcome<Member>> GetMemberWithId(string id)
@@ -52,6 +53,7 @@ namespace DCAF.DiscordBot.Services
             {
                 try
                 {
+                    var countUpdated = 0; 
                     for (var m = 0; m < members.Length; m++)
                     {
                         var member = members[m];
@@ -62,6 +64,7 @@ namespace DCAF.DiscordBot.Services
                             var (column, row) = getCell(member, propertyName);
                             var value = member[propertyName]?.ToString() ?? string.Empty;
                             var outcome = await _sheet.WriteCell(column, row, value);
+                            countUpdated += outcome ? 1 : 0;
                             if (!outcome)
                             {
                                 // todo log failed write to Sheet
@@ -70,7 +73,7 @@ namespace DCAF.DiscordBot.Services
                         member.ResetModified();
                     }
 
-                    return Outcome.Success();
+                    return Outcome.Success($"{countUpdated} users updated");
                 }
                 catch (Exception ex)
                 {
@@ -79,13 +82,26 @@ namespace DCAF.DiscordBot.Services
             });
         }
 
-        public event EventHandler Ready;
-
-        void getMembersAsync()
+        public Task<Outcome> ResetAsync()
         {
-            if (_members is { })
-                return;;
+            _getMembersTcs = new TaskCompletionSource<List<Member>>();
+            getMembersAsync(true);
+            _getMembersTcs.AwaitResult();
+            return Task.FromResult(Outcome.Success("Personnel cache was reloaded"));
+        }
 
+        public event EventHandler? Ready;
+
+        void getMembersAsync(bool reload)
+        {
+            if (_members is { } && !reload || DateTime.Now.Subtract(_lastReadMembers) < TimeSpan.FromSeconds(20))
+            {
+                Console.WriteLine($"### DCAF Personnel sheet won't reset (was last reset: {_lastReadMembers:u})"); // nisse
+                _getMembersTcs.SetResult(_members!);
+                return;
+            }
+
+            // read/reload members ...
             Task.Run(async () =>
             {
                 var outcome = await _sheet.ReadValuesAsync(new SheetColumns("A", "Z"));
@@ -104,7 +120,7 @@ namespace DCAF.DiscordBot.Services
                     catch (Exception ex)
                     {
                         _getMembersTcs.SetException(ex);
-                        Ready.Invoke(this, EventArgs.Empty);
+                        Ready?.Invoke(this, EventArgs.Empty);
                         return;
                     }
                 }
@@ -113,12 +129,15 @@ namespace DCAF.DiscordBot.Services
                     _members = new List<Member>();
                 }
                 _getMembersTcs.SetResult(_members!);
-                Ready.Invoke(this, EventArgs.Empty);
+                Ready?.Invoke(this, EventArgs.Empty);
 
                 List<Member> buildMemberList()
                 {
                     var list = new List<Member>();
                     var rowArray = values.ToArray();
+                    var sheetRowNoIndex = new Dictionary<Member, int>();
+                    var idIndex = new Dictionary<string, Member>();
+                    var emailIndex = new Dictionary<string, Member>();
                     for (var r = 0; r < rowArray.Length; r++)
                     {
                         var row = rowArray[r];
@@ -131,24 +150,28 @@ namespace DCAF.DiscordBot.Services
                         }
 
                         isReadingMembers = true;
-                        list.Add(member!);
-                        _sheetRowNoIndex.Add(member, rowNo);
+                        list.Add(member);
+                        sheetRowNoIndex.Add(member, rowNo);
                         if (member.Id != Member.MissingId)
                         {
-                            _idIndex.Add(member.Id, member);
+                            idIndex.Add(member.Id, member);
                         }
                         if (!string.IsNullOrWhiteSpace(member.Email))
                         {
-                            _emailIndex.Add(member.Email, member);
+                            emailIndex.Add(member.Email, member);
                         }
                     }
 
+                    _sheetRowNoIndex = sheetRowNoIndex;
+                    _idIndex = idIndex;
+                    _emailIndex = emailIndex;
+                    _lastReadMembers = DateTime.Now;
                     return list;
                 }
             });
         }
 
-        bool isMember(IList<object> row, [NotNullWhen(true)] out Member? member)
+        static bool isMember(IList<object> row, [NotNullWhen(true)] out Member? member)
         {
             member = null;
             if (row.Count < 11)
@@ -215,7 +238,7 @@ namespace DCAF.DiscordBot.Services
         public DcafPersonnel(GooglePersonnelSheet sheet)
         {
             _sheet = sheet;
-            getMembersAsync();
+            getMembersAsync(false);
         }
     }
 }

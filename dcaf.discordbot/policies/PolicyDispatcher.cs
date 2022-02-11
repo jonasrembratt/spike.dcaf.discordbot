@@ -1,17 +1,26 @@
+using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
 namespace DCAF.DiscordBot.Policies
 {
-    public class PolicyDispatcher
+    public class PolicyDispatcher 
     {
-        readonly Dictionary<string, Policy> _policies;
+        readonly Dictionary<string, Policy> _policies = new();
 
-        public bool TryGetPolicy(string name, out Policy policy) => _policies.TryGetValue(name, out policy);
+        public Policy[] GetPolicies() => _policies.Values.ToArray();
 
-        public PolicyDispatcher(params Policy[] policies)
+        internal bool ContainsPolicy(string name) => _policies.ContainsKey(name);
+
+        public bool TryGetPolicy(string name, [NotNullWhen(true)] out Policy? policy) => _policies.TryGetValue(name, out policy);
+
+        public void Add(Policy policy)
         {
-            _policies = policies.ToDictionary(i => i.Name);
+            if (_policies.ContainsKey(policy.Name))
+                throw new ArgumentException($"Policy was already added: {policy}", nameof(policy));
+            
+            _policies.Add(policy.Name, policy);
         }
     }
 }

@@ -10,9 +10,10 @@ namespace dcaf.discordbot.Discord
     public class DiscordGuild : IDiscordGuild
     {
         readonly SocketGuild _guild;
-        readonly TaskCompletionSource<Outcome<SocketGuildUser[]>?> _loadUsersTcs = new();
+        TaskCompletionSource<Outcome<SocketGuildUser[]>?> _loadUsersTcs = new();
         Outcome<SocketGuildUser[]>? _usersOutcome;
         Dictionary<DiscordName, SocketGuildUser>? _discordNameIndex;
+        DateTime _lastReadUsers = DateTime.MinValue;
 
         public async Task<Outcome<SocketGuildUser>> GetDiscordUserWithName(DiscordName discordName)
         {
@@ -27,16 +28,40 @@ namespace dcaf.discordbot.Discord
                     new ArgumentOutOfRangeException($"Could not find discord user {discordName}"));
         }
 
-        void loadUsersAsync()
+        public Task<Outcome> ResetAsync()
         {
+            _loadUsersTcs = new TaskCompletionSource<Outcome<SocketGuildUser[]>?>();
+            loadUsersAsync(true);
+            _loadUsersTcs.AwaitResult();
+            return Task.FromResult(Outcome.Success());
+        }
+
+        void loadUsersAsync(bool reload)
+        {
+            if ((_discordNameIndex?.Any() ?? false) && !reload)
+            {
+                _loadUsersTcs.SetResult(_usersOutcome);
+                return;
+            }
+
+            if (DateTime.Now.Subtract(_lastReadUsers) < TimeSpan.FromSeconds(20))
+            {
+                Console.WriteLine($"@@@ Guild won't reset (was last reset: {_lastReadUsers:u})"); // nisse
+                _loadUsersTcs.SetResult(_usersOutcome);
+                return;
+            }
+            
             Task.Run(async () =>
             {
                 try
                 {
+                    Console.WriteLine($"@@@ Downloads users ..."); // nisse
                     await _guild.DownloadUsersAsync();
                     var users = _guild.Users.ToArray();
+                    Console.WriteLine($"@@@ Downloads users - DONE!"); // nisse
                     _discordNameIndex = users.ToDictionary(i => new DiscordName(i.Username, i.Discriminator));
                     _loadUsersTcs.SetResult(_usersOutcome = Outcome<SocketGuildUser[]>.Success(users));
+                    _lastReadUsers = DateTime.Now;
                 }
                 catch (Exception ex)
                 {
@@ -56,13 +81,8 @@ namespace dcaf.discordbot.Discord
 
         public DiscordGuild(DiscordSocketClient discordClient, ulong guildId)
         {
-            _guild = discordClient.GetGuild(guildId);
-            loadUsersAsync();
+            _guild = discordClient.GetGuild(guildId) ?? throw new ArgumentOutOfRangeException($"Guild not found: {guildId}");
+            loadUsersAsync(false);
         }
-    }
-
-    public interface IDiscordGuild
-    {
-        Task<Outcome<SocketGuildUser>> GetDiscordUserWithName(DiscordName discordName);
     }
 }

@@ -40,7 +40,8 @@ namespace DCAF.DiscordBot.Google
         ///   (optional; default = all)<br/>
         ///   A range of rows ro be read.
         /// </param>
-        /// <returns></returns>
+        /// <returns>
+        /// </returns>
         public async Task<Outcome<ValueRange>> ReadValuesAsync(SheetColumns columns, SheetRows? rows = null)
         {
             if (columns is null) throw new ArgumentNullException(nameof(columns));
@@ -50,7 +51,9 @@ namespace DCAF.DiscordBot.Google
             var request = Service.Spreadsheets.Values.Get(DocumentId, range);
             try
             {
+                Console.WriteLine($"### Reads sheet: {columns.ToString(rows)} ..."); // nisse
                 var valueRange = await request.ExecuteAsync();
+                Console.WriteLine($"### Reads sheet: {columns.ToString(rows)} DONE!"); // nisse
                 return Outcome<ValueRange>.Success(valueRange);
             }
             catch (Exception ex)

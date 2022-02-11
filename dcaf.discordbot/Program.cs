@@ -12,10 +12,10 @@ namespace dcaf.discordbot
 {
     class Program
     {
-        const string Token = "OTQxMjM5NjMwNDUwMjk0Nzk1.YgTDtw.WTweaZYwiwh0chhmR7O_EjL4k3s"; // todo Read Discord token from environment variable
+        const string DcafBotTokenIdent = "DCAF_BOT_TOKEN"; 
         internal const ulong DcafGuildId = 272872335608905728;
         const string KeyWord = "!dcaf";
-        static bool s_isDiscordClientReady;
+        static bool s_isPoliciesAvailable;
         static bool s_isPersonnelReady;
         
         static DiscordSocketClient _client;
@@ -36,10 +36,12 @@ namespace dcaf.discordbot
             personnel.Ready += (_, _) => s_isPersonnelReady = true;
             _client.Ready += () =>
             {
-                s_isDiscordClientReady = true;
+                services.ActivatePolicies();
+                s_isPoliciesAvailable = true;
                 return Task.CompletedTask;
             };
-            await _client.LoginAsync(TokenType.Bot, Token);
+            var botToken = Environment.GetEnvironmentVariable(DcafBotTokenIdent);
+            await _client.LoginAsync(TokenType.Bot, botToken);
             await _client.StartAsync();
 
             if (!isCli(args, out var policyName))
@@ -63,7 +65,9 @@ namespace dcaf.discordbot
                 }
 
                 var outcome = await policy.ExecuteAsync();
-                Console.WriteLine(!outcome ? outcome.Exception!.Message : $"{policy.Name} completed successfully");
+                Console.WriteLine(!outcome 
+                    ? outcome.Exception!.Message 
+                    : $"{policy.Name} completed successfully{(outcome.HasMessage ? $": {outcome.Message}" : "" )}");
                 policyName = promptForPolicy();
             }
 
@@ -72,7 +76,7 @@ namespace dcaf.discordbot
 
         static void waitForClientToGetReady()
         {
-            while (!s_isDiscordClientReady || !s_isPersonnelReady)
+            while (!s_isPoliciesAvailable || !s_isPersonnelReady)
             {
                 Task.Delay(100);
             }

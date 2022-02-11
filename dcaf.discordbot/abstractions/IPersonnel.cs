@@ -13,6 +13,9 @@ namespace DCAF.DiscordBot
         Task<Outcome<Member>> GetMemberWithId(string id);
 
         Task<Outcome<Member>> GetMemberWithEmail(string email);
+        
         Task<Outcome> Update(params Member[] members);
+
+        Task<Outcome> ResetAsync();
     }
 }

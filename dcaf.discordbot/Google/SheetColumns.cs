@@ -7,6 +7,12 @@ namespace DCAF.DiscordBot.Google
         public string First { get;  }
         public string? Last { get; }
 
+        public override string ToString() => $"{First}:{Last}";
+
+        public string ToString(SheetRows? rows) => rows is {} 
+            ? $"{First}{rows.First.ToString()}:{Last}{rows.Last.ToString()}"
+            : ToString();
+
         public SheetColumns(string first, string? last)
         {
             if (string.IsNullOrWhiteSpace(first)) throw new ArgumentNullException(nameof(first));

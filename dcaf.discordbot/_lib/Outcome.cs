@@ -28,6 +28,8 @@ namespace DCAF.DiscordBot._lib
         /// </summary>
         public Exception? Exception { get; }
 
+        public bool HasMessage => !string.IsNullOrWhiteSpace(Message);
+
         /// <summary>
         ///   Implicitly casts the <see cref="bool"/> to a <see cref="Outcome"/> value.
         /// </summary>
@@ -41,7 +43,7 @@ namespace DCAF.DiscordBot._lib
         ///   A <see cref="Outcome{T}"/> that represents a <c>true</c> value when
         ///   cast as a <see cref="bool"/> while also carrying a specified value.
         /// </returns>
-        public static Outcome Success() => new(true, null!, null!);
+        public static Outcome Success(string? message = null) => new(true, message, null!);
         
         /// <summary>
         ///   Creates and returns an <see cref="Outcome"/> that equals <c>false</c> when cast to a
