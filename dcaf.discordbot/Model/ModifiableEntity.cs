@@ -1,10 +1,11 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using TetraPak.XP.DynamicEntities;
 
 namespace DCAF.DiscordBot.Model
 {
-    public class Entity : Dictionary<string,object?>
+    public class Entity : DynamicEntity
     {
         readonly HashSet<string> _updatedKeys = new();
 
@@ -18,11 +19,23 @@ namespace DCAF.DiscordBot.Model
 
         public string[] GetUpdatedProperties() => _updatedKeys.ToArray();
         
-        protected T? Get<T>(T? useDefault = default, [CallerMemberName] string? propertyName = null) =>
-            TryGetValue(propertyName!, out var obj) && obj is T tv 
-                ? tv 
+        protected T? Get<T>(T? useDefault = default, [CallerMemberName] string? propertyName = null)
+        {
+            if (TryGetValue(propertyName!, out var nisse)) // nisse
+            {
+                if (nisse is T tValue)
+                {
+                    return tValue;
+                }
+
+                return useDefault;
+            }
+                
+            return TryGetValue(propertyName!, out var obj) && obj is T tv
+                ? tv
                 : useDefault;
-        
+        }
+
         protected void Set(object? value, bool setIsModified = false, [CallerMemberName] string? propertyName = null)
         {
             if (!TryGetValue(propertyName!, out var existing))

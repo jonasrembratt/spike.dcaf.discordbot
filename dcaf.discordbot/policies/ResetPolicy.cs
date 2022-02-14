@@ -9,7 +9,7 @@ namespace DCAF.DiscordBot.Policies
 {
     public class ResetPoliciesPolicy : Policy
     {
-        public override async Task<Outcome> ExecuteAsync()
+        public override async Task<Outcome> ExecuteAsync(string[] args)
         {
             var tasks = new List<Task<Outcome>>();
             var policies = Dispatcher.GetPolicies();
