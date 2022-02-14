@@ -7,12 +7,29 @@ using DCAF.DiscordBot._lib;
 
 namespace DCAF.DiscordBot.Policies
 {
-    public class ResetPoliciesPolicy : Policy
+    public class ResetPolicy : Policy
     {
-        public override async Task<Outcome> ExecuteAsync(string[] args)
+        const string IdentAll = "all";
+        
+        public override async Task<Outcome> ExecuteAsync(PolicyArgs e)
         {
+            var args = e.Parameters;
+            var policyName = args.Any() ? args[0] : IdentAll;
             var tasks = new List<Task<Outcome>>();
-            var policies = Dispatcher.GetPolicies();
+            Policy[] policies;
+            if (policyName == IdentAll)
+            {
+                policies = Dispatcher.GetPolicies();
+            }
+            else if (Dispatcher.TryGetPolicy(policyName, out var selectedPolicy))
+            {
+                policies = new[] { selectedPolicy };
+            }
+            else
+                return Outcome.Fail(new ArgumentOutOfRangeException($"Unknown policy: {policyName}"));
+
+
+            // var policies = Dispatcher.GetPolicies();
             foreach (var policy in policies)
             {
                 if (policy == this)
@@ -40,8 +57,8 @@ namespace DCAF.DiscordBot.Policies
             throw new NotSupportedException();
         }
 
-        public ResetPoliciesPolicy(PolicyDispatcher dispatcher) 
-        : base("reset-all", dispatcher)
+        public ResetPolicy(PolicyDispatcher dispatcher) 
+        : base("reset", dispatcher)
         {
         }
     }

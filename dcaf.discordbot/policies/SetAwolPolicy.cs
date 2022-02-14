@@ -12,8 +12,9 @@ namespace DCAF.DiscordBot.Policies
 
         public TimeSpan MaxInactiveTime { get; set; } = TimeSpan.FromDays(10);
 
-        public override async Task<Outcome> ExecuteAsync()
+        public override async Task<Outcome> ExecuteAsync(PolicyArgs e)
         {
+            var args = e.Parameters;
             return Outcome.Fail(new Exception("!POLICY IS NOT IMPLEMENTED YET!"));
             // work backwards, from last event to older ones ...
 

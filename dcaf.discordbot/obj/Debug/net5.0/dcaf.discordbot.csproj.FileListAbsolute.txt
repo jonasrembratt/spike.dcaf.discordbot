@@ -34,3 +34,10 @@
 /Users/SEREMBRATTJ/code/sanscheval/DCAF/spike.dcaf.discordbot/dcaf.discordbot/obj/Debug/net5.0/discordbot.pdb
 /Users/SEREMBRATTJ/code/sanscheval/DCAF/spike.dcaf.discordbot/dcaf.discordbot/obj/Debug/net5.0/dcaf.discordbot.genruntimeconfig.cache
 /Users/SEREMBRATTJ/code/sanscheval/DCAF/spike.dcaf.discordbot/dcaf.discordbot/bin/Debug/net5.0/_files/events.csv
+/Users/SEREMBRATTJ/code/sanscheval/DCAF/spike.dcaf.discordbot/dcaf.discordbot/bin/Debug/net5.0/Microsoft.AspNetCore.Http.Abstractions.dll
+/Users/SEREMBRATTJ/code/sanscheval/DCAF/spike.dcaf.discordbot/dcaf.discordbot/bin/Debug/net5.0/Microsoft.AspNetCore.Http.Features.dll
+/Users/SEREMBRATTJ/code/sanscheval/DCAF/spike.dcaf.discordbot/dcaf.discordbot/bin/Debug/net5.0/Microsoft.Extensions.Primitives.dll
+/Users/SEREMBRATTJ/code/sanscheval/DCAF/spike.dcaf.discordbot/dcaf.discordbot/bin/Debug/net5.0/TetraPak.XP.Common.dll
+/Users/SEREMBRATTJ/code/sanscheval/DCAF/spike.dcaf.discordbot/dcaf.discordbot/bin/Debug/net5.0/TetraPak.XP.DependencyInjection.dll
+/Users/SEREMBRATTJ/code/sanscheval/DCAF/spike.dcaf.discordbot/dcaf.discordbot/bin/Debug/net5.0/TetraPak.XP.DynamicEntities.dll
+/Users/SEREMBRATTJ/code/sanscheval/DCAF/spike.dcaf.discordbot/dcaf.discordbot/bin/Debug/net5.0/TetraPak.XP.Serialization.dll

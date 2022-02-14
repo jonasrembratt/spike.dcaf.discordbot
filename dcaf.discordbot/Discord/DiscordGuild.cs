@@ -9,13 +9,17 @@ namespace dcaf.discordbot.Discord
 {
     public class DiscordGuild : IDiscordGuild
     {
-        readonly SocketGuild _guild;
+        // readonly SocketGuild _guild;
         TaskCompletionSource<Outcome<SocketGuildUser[]>?> _loadUsersTcs = new();
         Outcome<SocketGuildUser[]>? _usersOutcome;
         Dictionary<DiscordName, SocketGuildUser>? _discordNameIndex;
         DateTime _lastReadUsers = DateTime.MinValue;
 
-        public async Task<Outcome<SocketGuildUser>> GetDiscordUserWithName(DiscordName discordName)
+        public DiscordSocketClient DiscordClient { get; }
+
+        public SocketGuild SocketGuild { get; }
+
+        public async Task<Outcome<SocketGuildUser>> GetDiscordUserWithNameAsync(DiscordName discordName)
         {
             var outcome = await getUsersAsync();
             if (!outcome)
@@ -55,10 +59,8 @@ namespace dcaf.discordbot.Discord
             {
                 try
                 {
-                    Console.WriteLine($"@@@ Downloads users ..."); // nisse
-                    await _guild.DownloadUsersAsync();
-                    var users = _guild.Users.ToArray();
-                    Console.WriteLine($"@@@ Downloads users - DONE!"); // nisse
+                    await SocketGuild.DownloadUsersAsync();
+                    var users = SocketGuild.Users.ToArray();
                     _discordNameIndex = users.ToDictionary(i => new DiscordName(i.Username, i.Discriminator));
                     _loadUsersTcs.SetResult(_usersOutcome = Outcome<SocketGuildUser[]>.Success(users));
                     _lastReadUsers = DateTime.Now;
@@ -79,9 +81,10 @@ namespace dcaf.discordbot.Discord
             return Task.FromResult(_usersOutcome!);
         }
 
-        public DiscordGuild(DiscordSocketClient discordClient, ulong guildId)
+        public DiscordGuild(DiscordSocketClient client, ulong guildId)
         {
-            _guild = discordClient.GetGuild(guildId) ?? throw new ArgumentOutOfRangeException($"Guild not found: {guildId}");
+            DiscordClient = client;
+            SocketGuild = client.GetGuild(guildId) ?? throw new ArgumentOutOfRangeException($"Guild not found: {guildId}");
             loadUsersAsync(false);
         }
     }

@@ -1,11 +1,14 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using TetraPak.XP;
 using TetraPak.XP.DynamicEntities;
+using TetraPak.XP.Serialization;
 
 namespace DCAF.DiscordBot.Model
 {
-    public class Entity : DynamicEntity
+    [JsonKeyFormat(KeyTransformationFormat.CamelCase)]
+    public class ModifiableEntity : DynamicEntity
     {
         readonly HashSet<string> _updatedKeys = new();
 
@@ -18,25 +21,10 @@ namespace DCAF.DiscordBot.Model
         public void SetOperational() => IsOperational = true;
 
         public string[] GetUpdatedProperties() => _updatedKeys.ToArray();
-        
-        protected T? Get<T>(T? useDefault = default, [CallerMemberName] string? propertyName = null)
-        {
-            if (TryGetValue(propertyName!, out var nisse)) // nisse
-            {
-                if (nisse is T tValue)
-                {
-                    return tValue;
-                }
 
-                return useDefault;
-            }
-                
-            return TryGetValue(propertyName!, out var obj) && obj is T tv
-                ? tv
-                : useDefault;
-        }
+        public override void Set<TValue>(TValue value, string? caller = null) => Set(value, true, caller);
 
-        protected void Set(object? value, bool setIsModified = false, [CallerMemberName] string? propertyName = null)
+        protected void Set(object? value, bool setIsModified = true, [CallerMemberName] string? propertyName = null)
         {
             if (!TryGetValue(propertyName!, out var existing))
             {

@@ -50,6 +50,14 @@
             "Microsoft.Extensions.DependencyInjection": {
               "target": "Package",
               "version": "[6.0.2-mauipre.1.22054.8, )"
+            },
+            "TetraPak.XP.Desktop": {
+              "target": "Package",
+              "version": "[1.0.0-alpha.5, )"
+            },
+            "TetraPak.XP.Web.Http": {
+              "target": "Package",
+              "version": "[1.0.0-alpha.5, )"
             }
           },
           "imports": [

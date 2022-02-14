@@ -8,29 +8,34 @@ using System.Threading.Tasks;
 using dcaf.discordbot;
 using DCAF.DiscordBot._lib;
 using dcaf.discordbot.Discord;
+using DCAF.DiscordBot.Model;
 using Discord;
 using TetraPk.XP.Web.Http;
 
-namespace DCAF.DiscordBot.Model
+namespace DCAF.DiscordBot
 {
     // todo Support caching events
     public class GuildEventsRepository
     {
         const ulong RaidHelperId = 579155972115660803;
-        
+
+        List<TimeFrame> _eventsTimeframes = new();
         readonly DcafConfiguration _dcafConfiguration;
         readonly IHttpClientProvider _httpClientProvider;
         readonly TaskCompletionSource<Outcome<GuildEvent[]>> _loadingTcs = new();
         readonly IDiscordGuild _guild;
-        
+        ulong[] _configuredChannels;
 
-        void loadEventsAsync(TimeFrame timeframe, ulong[] channels)
+        public Task<Outcome<GuildEvent[]>> ReadEventsAsync(TimeFrame timeframe, ulong[]? channels = null)
         {
+            channels ??= _configuredChannels;
             Task.Run(async () =>
             {
                 try
                 {
-                    _loadingTcs.SetResult(await getEventsAsync(timeframe, channels));
+                    var outcome = await getEventsAsync(timeframe, channels);
+                    addTimeframe(timeframe, outcome);
+                    _loadingTcs.SetResult(outcome);
                 }
                 catch (Exception ex)
                 {
@@ -38,7 +43,19 @@ namespace DCAF.DiscordBot.Model
                 }
             });
         }
-        
+
+        void addTimeframe(TimeFrame timeFrame, Outcome<GuildEvent[]> outcome)
+        {
+            if (!outcome)
+                return;
+
+            var events = outcome.Value!;
+            foreach (var evt in events)
+            {
+                evt.Date
+            }
+        }
+
         async Task<Outcome<GuildEvent[]>> getEventsAsync(TimeFrame timeFrame, ulong[] channels)
         {
             var from = timeFrame.From;
@@ -139,17 +156,6 @@ namespace DCAF.DiscordBot.Model
                 : throw new FormatException($"Unrecognized events backlog configuration: {config.Events!.Backlog!}");
         }
 
-        public GuildEventsRepository(DcafConfiguration dcafConfiguration, IDiscordGuild guild, IHttpClientProvider httpClientProvider)
-        {
-            _dcafConfiguration = dcafConfiguration;
-            _guild = guild;
-            _httpClientProvider = httpClientProvider;
-            var backlog = resolveEventsTimeframe(dcafConfiguration);
-            var timeframe = new TimeFrame(DateTime.UtcNow.Subtract(backlog), DateTime.UtcNow);
-            var channels = getEventsChannels(dcafConfiguration);
-            loadEventsAsync(timeframe, channels);
-        }
-
         static ulong[] getEventsChannels(DcafConfiguration config)
         {
             if (!config.Events?.Channels?.Any() ?? true)
@@ -157,10 +163,16 @@ namespace DCAF.DiscordBot.Model
 
             return config.Events.Values.Where(i => i is ulong).Cast<ulong>().ToArray();
         }
-
-        public async Task<Outcome<GuildEvent[]>> ReadEventsAsync(TimeFrame? timeFrame)
+        
+        public GuildEventsRepository(DcafConfiguration dcafConfiguration, IDiscordGuild guild, IHttpClientProvider httpClientProvider)
         {
-            throw new NotImplementedException();
+            _dcafConfiguration = dcafConfiguration;
+            _guild = guild;
+            _httpClientProvider = httpClientProvider;
+            var backlog = resolveEventsTimeframe(dcafConfiguration);
+            var timeframe = new TimeFrame(DateTime.UtcNow.Subtract(backlog), DateTime.UtcNow);
+            _configuredChannels = getEventsChannels(dcafConfiguration);
+            ReadEventsAsync(timeframe);
         }
     }
 }

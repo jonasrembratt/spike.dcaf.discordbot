@@ -2,17 +2,34 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using dcaf.discordbot;
 using dcaf.discordbot.Discord;
 using DCAF.DiscordBot.Google;
 using DCAF.DiscordBot.Model;
 using DCAF.DiscordBot.Policies;
+using Discord.Commands;
 using Discord.WebSocket;
 using Microsoft.Extensions.DependencyInjection;
+using TetraPak.XP.Logging;
+using TetraPk.XP.Web.Http;
 
 namespace DCAF.DiscordBot.Services
 {
     static class ServicesHelper
     {
+        public static IServiceCollection AddBasicLogging(this IServiceCollection collection)
+        {
+            // todo support Discord logging framework instead
+            collection.AddSingleton(p => new BasicLog().WithConsoleLogging());
+            return collection;
+        }
+
+        public static IServiceCollection AddHttpClientProvider(this IServiceCollection collection)
+        {
+            collection.AddSingleton<IHttpClientProvider, HttpClientProvider>();
+            return collection;
+        }
+        
         public static async Task<IServiceCollection> AddPersonnelAsync(this IServiceCollection collection)
         {
             await collection.AddGooglePersonnelSheetAsync();
@@ -21,6 +38,12 @@ namespace DCAF.DiscordBot.Services
                 var personnelSheet = p.GetRequiredService<GooglePersonnelSheet>();
                 return new DcafPersonnel(personnelSheet);
             });
+            return collection;
+        }
+
+        public static IServiceCollection AddGuildEvents(this IServiceCollection collection)
+        {
+            collection.AddSingleton<GuildEventsRepository>();
             return collection;
         }
         
@@ -41,7 +64,7 @@ namespace DCAF.DiscordBot.Services
             DiscordSocketClient discordClient, 
             ulong guildId)
         {
-            collection.AddSingleton(p => new DiscordGuild(discordClient, guildId));
+            collection.AddSingleton<IDiscordGuild>(_ => new DiscordGuild(discordClient, guildId));
             return collection;
         }
 
@@ -53,10 +76,12 @@ namespace DCAF.DiscordBot.Services
                 throw new Exception("Could not load events from file");
 
             collection.AddSingleton(p => loadEventsOutcome.Value!);
+            collection.AddSingleton<CommandService>();
             collection.AddSingleton<PolicyDispatcher>();
             collection.AddSingleton<SynchronizeIdsPolicy>();
-            collection.AddSingleton<ResetPoliciesPolicy>();
+            collection.AddSingleton<ResetPolicy>();
             collection.AddSingleton<SetAwolPolicy>();
+            collection.AddSingleton<GetStuffPolicy>();
             return collection;
         }
 

@@ -1,9 +1,12 @@
 using System;
 using dcaf.discordbot.Discord;
+using Newtonsoft.Json;
+using TetraPak.XP.DynamicEntities;
 
 namespace DCAF.DiscordBot.Model
 {
-    public class Member : Entity
+    [JsonConverter(typeof(DynamicEntityJsonConverter<Member>))]
+    public class Member : ModifiableEntity
     {
         public const string MissingId = "?";
         

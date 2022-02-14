@@ -4,19 +4,25 @@ using System.Threading.Tasks;
 using DCAF.DiscordBot._lib;
 using dcaf.discordbot.Discord;
 using DCAF.DiscordBot.Model;
+using Discord.Commands;
 
 namespace DCAF.DiscordBot.Policies
 {
     public class SynchronizeIdsPolicy : Policy
     {
-        const string PolicyIdent = "sync-ids";
+        const string CommandName = "sync-ids";
         
         // readonly EventCollection _events;
         readonly IPersonnel _personnel;
-        readonly DiscordGuild _discordGuild;
+        readonly IDiscordGuild _discordGuild;
 
-        public override async Task<Outcome> ExecuteAsync()
+        [Command(CommandName)]
+        [Summary("Ensures members in the Google sheet Personnel Sheet are assigned correct Discord IDs")]
+        public Task SyncIds() => ExecuteAsync(PolicyArgs.FromSocketMessage(Context.Message));
+        
+        public override async Task<Outcome> ExecuteAsync(PolicyArgs e)
         {
+            var args = e.Parameters;
             // todo Add logging
             var membersWithNoId = _personnel.Where(i => i.Id == Member.MissingId).ToArray();
             var updatedMembers = new List<Member>();
@@ -57,7 +63,7 @@ namespace DCAF.DiscordBot.Policies
 
         async Task<Outcome<ulong>> tryGetMemberDiscordIdAsync(Member member)
         {
-            var outcome = await _discordGuild.GetDiscordUserWithName(member.DiscordName!);
+            var outcome = await _discordGuild.GetDiscordUserWithNameAsync(member.DiscordName!);
             return outcome
                 ? Outcome<ulong>.Success(outcome.Value!.Id)
                 : Outcome<ulong>.Fail(outcome.Exception!);
@@ -65,9 +71,9 @@ namespace DCAF.DiscordBot.Policies
 
         public SynchronizeIdsPolicy(
             IPersonnel personnel, 
-            DiscordGuild discordGuild,
+            IDiscordGuild discordGuild,
             PolicyDispatcher dispatcher)
-        : base(PolicyIdent, dispatcher)
+        : base(CommandName, dispatcher)
         {
             _personnel = personnel;
             _discordGuild = discordGuild;
