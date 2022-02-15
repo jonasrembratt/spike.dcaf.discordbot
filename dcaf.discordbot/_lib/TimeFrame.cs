@@ -84,6 +84,50 @@ namespace DCAF.DiscordBot._lib
             }
         }
 
+        public static TimeFrame[] GetOverlapping(this TimeFrame self, params TimeFrame[] timeFrames)
+            =>
+            self.GetOverlapping(true, timeFrames);
+        
+        public static TimeFrame[] GetOverlapping(this TimeFrame self, bool isSorted, params TimeFrame[] timeFrames)
+        {
+            if (!isSorted)
+            {
+                var sorted = timeFrames.ToList();
+                sorted.Sort((a, b) => a.CompareTo(b));
+                timeFrames = sorted.ToArray();
+            }
+            var overlapping = new List<TimeFrame>();
+            for (var i = 0; i < timeFrames.Length; i++)
+            {
+                var nextTimeframe = timeFrames[i];
+                var overlap = self.GetOverlap(nextTimeframe);
+                switch (overlap)
+                {
+                    case Overlap.None:
+                        if (self.To < nextTimeframe.From)
+                            continue;
+
+                        return overlapping.ToArray();
+                    
+                    case Overlap.Full:
+                        overlapping.Add(nextTimeframe);
+                        if (self.From >= nextTimeframe.From && self.To <= nextTimeframe.To)
+                            return overlapping.ToArray();
+                        
+                        break;
+                    
+                    case Overlap.Start:
+                    case Overlap.End:
+                        overlapping.Add(nextTimeframe);
+                        break;
+                    
+                    default:
+                        throw new ArgumentOutOfRangeException();
+                }
+            }
+            return overlapping.ToArray();
+        }
+
         /// <summary>
         ///   Subtracts one or more chronologically ordered time frames from this time frame.
         /// </summary>
@@ -143,10 +187,13 @@ namespace DCAF.DiscordBot._lib
                         break;
                     
                     case 1:
+                        if (diff[0].From >= nextTimeFrame.To)
+                        {
+                            self = diff[0];
+                            continue;
+                        }
                         list.AddRange(diff);
-                        if (self.To < nextTimeFrame.From)
-                            return list.ToArray();
-                        break;
+                        return list.ToArray();
 
                     case 2:
                         if (i == timeFrames.Length - 1)

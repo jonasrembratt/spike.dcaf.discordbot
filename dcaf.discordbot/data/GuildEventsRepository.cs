@@ -19,40 +19,82 @@ namespace DCAF.DiscordBot
     {
         const ulong RaidHelperId = 579155972115660803;
 
-        List<TimeFrame> _eventsTimeframes = new();
         readonly List<EventsCollection> _events = new();
-        readonly DcafConfiguration _dcafConfiguration;
         readonly IHttpClientProvider _httpClientProvider;
         readonly IDiscordGuild _guild;
-        ulong[] _configuredChannels;
+        readonly ulong[] _configuredChannels;
         TaskCompletionSource<Outcome<GuildEvent[]>> _loadingTcs = new();
         bool _isEventsAligned;
 
         public Task<Outcome<GuildEvent[]>> ReadEventsAsync(TimeFrame timeframe)
         {
-            throw new NotImplementedException();
-            
-            // Task.Run(async () =>
-            // {
-            //     lock (_events)
-            //     {
-            //         alignCachedEvents();
-            //     }
-            //
-            //     // List<TimeFrame> intersected = timeframe.Intersect(_events.Select(i => i.TimeFrame).ToArray());
-            //
-            //
-            //     try
-            //     {
-            //         var outcome = await loadEventsFromSourceAsync(timeframe, _configuredChannels);
-            //         addTimeframe(timeframe, outcome);
-            //         _loadingTcs.SetResult(outcome);
-            //     }
-            //     catch (Exception ex)
-            //     {
-            //         _loadingTcs.SetException(ex);
-            //     }
-            // });
+            Task.Run(async () =>
+            {
+                var result = new List<GuildEvent>();
+                TimeFrame[] unloadedTimeFrames;
+                lock (_events)
+                {
+                    _loadingTcs.AwaitResult(); // awaits ongoing operation
+                    alignCachedEvents();
+                    var allTimeframes = _events.Select(ec => ec.TimeFrame).ToArray();
+                    var overlappingTimeframes = timeframe.GetOverlapping(allTimeframes);
+                    result.AddRange(getExistingEvents(timeframe));
+                    unloadedTimeFrames = timeframe.Subtract(overlappingTimeframes);
+                    _loadingTcs = new TaskCompletionSource<Outcome<GuildEvent[]>>();
+                }
+
+                try
+                {
+                    foreach (var loadTimeframe in unloadedTimeFrames)
+                    {
+                        var outcome = await loadEventsFromSourceAsync(loadTimeframe, _configuredChannels);
+                        if (!outcome)
+                        {
+                            _loadingTcs.SetResult(outcome);
+                            return;
+                        }
+
+                        _events.Add(new EventsCollection(loadTimeframe, outcome.Value!));
+                        result.AddRange(outcome.Value!);
+                    }
+                    
+                    _isEventsAligned = false;
+                    _loadingTcs.SetResult(Outcome<GuildEvent[]>.Success(result.ToArray()));
+                }
+                catch (Exception ex)
+                {
+                    _loadingTcs.SetException(ex);
+                }
+            });
+
+            return _loadingTcs.Task;
+        }
+
+        IEnumerable<GuildEvent> getExistingEvents(TimeFrame timeFrame)
+        {
+            var list = new List<GuildEvent>();
+            foreach (var events in _events)
+            {
+                switch (timeFrame.GetOverlap(events.TimeFrame))
+                {
+                    case Overlap.None:
+                        break;
+                    case Overlap.Start:
+                        list.AddRange(events.GetEvents(timeFrame));
+                        break;
+                    
+                    case Overlap.Full:
+                    case Overlap.End:
+                        list.AddRange(events.GetEvents(timeFrame));
+                        if (timeFrame.To <= events.TimeFrame.To)
+                            return list;
+                        break;
+                    default:
+                        throw new ArgumentOutOfRangeException();
+                }
+            }
+
+            return list;
         }
 
         void alignCachedEvents()
@@ -75,7 +117,7 @@ namespace DCAF.DiscordBot
                     case Overlap.Start:
                     case Overlap.End:
                         a.TimeFrame = a.TimeFrame.Merge(b.TimeFrame);
-                        a.AddEvents(b);
+                        a.AddEventsFrom(b);
                         break;
                     
                     default:
@@ -208,7 +250,6 @@ namespace DCAF.DiscordBot
         
         public GuildEventsRepository(DcafConfiguration dcafConfiguration, IDiscordGuild guild, IHttpClientProvider httpClientProvider)
         {
-            _dcafConfiguration = dcafConfiguration;
             _guild = guild;
             _httpClientProvider = httpClientProvider;
             var backlog = resolveEventsTimeframe(dcafConfiguration);
@@ -224,8 +265,6 @@ namespace DCAF.DiscordBot
 
         public TimeFrame TimeFrame { get; set; }
 
-        public IEnumerable<GuildEvent> Events { get; }
-
         internal int Compare(EventsCollection other)
         {
             return TimeFrame.From < other.TimeFrame.From
@@ -237,12 +276,18 @@ namespace DCAF.DiscordBot
 
         internal GuildEvent[] GetEvents(TimeFrame timeFrame) 
             => 
-            Events.Where(e => e.Date >= timeFrame.From && e.Date <= timeFrame.To).ToArray();
+            _events.Where(e => e.Date >= timeFrame.From && e.Date <= timeFrame.To).ToArray();
 
-        public void AddEvents(EventsCollection source)
+        public void AddEventsFrom(EventsCollection source)
         {
-            _events.AddRange(source.Events);
+            _events.AddRange(source._events);
             _events.Sort((a,b) => a.Date < b.Date ? -1 : a.Date > b.Date ? 1 : 0);
+        }
+
+        public EventsCollection(TimeFrame timeFrame, IEnumerable<GuildEvent> events)
+        {
+            TimeFrame = timeFrame;
+            _events.AddRange(events);
         }
     }
 }

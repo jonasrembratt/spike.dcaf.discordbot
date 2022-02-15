@@ -74,9 +74,9 @@ namespace UnitTests
         [Fact]
         public void Test_subtracting_multiple_smaller_overlapping_timeframes()
         {
-            //    <------------------------> 
-            //         <--->     <---->
-            // =  <--->     <--->      <--->
+            // a:    <------------------------> 
+            // b+c:        <--->     <---->
+            // ==    <--->      <--->      <--->
             var a = new TimeFrame(new DateTime(2000, 1, 1), new DateTime(2000, 1, 30));
             var b = new TimeFrame(new DateTime(2000, 1, 5), new DateTime(2000, 1, 10));
             var c = new TimeFrame(new DateTime(2000, 1, 15), new DateTime(2000, 1, 20)); 
@@ -85,6 +85,25 @@ namespace UnitTests
             Assert.Equal(new TimeFrame(new DateTime(2000, 1, 1), new DateTime(2000, 1, 5)), diff[0]);
             Assert.Equal(new TimeFrame(new DateTime(2000, 1, 10), new DateTime(2000, 1, 15)), diff[1]);
             Assert.Equal(new TimeFrame(new DateTime(2000, 1, 20), new DateTime(2000, 1, 30)), diff[2]);
+            
+            // a:    <------------------> 
+            // b+c:        <--->     <---->
+            // ==    <--->      <--->
+            a = new TimeFrame(new DateTime(2000, 1, 1), new DateTime(2000, 1, 15));
+            diff = a.Subtract(b, c);
+            Assert.Equal(2, diff.Length);
+            Assert.Equal(new TimeFrame(new DateTime(2000, 1, 1), new DateTime(2000, 1, 5)), diff[0]);
+            Assert.Equal(new TimeFrame(new DateTime(2000, 1, 10), new DateTime(2000, 1, 15)), diff[1]);
+            
+            
+            // a:            <-----------------> 
+            // b+c:        <--->     <---->
+            // ==               <--->      <--->
+            a = new TimeFrame(new DateTime(2000, 1, 7), new DateTime(2000, 1, 25));
+            diff = a.Subtract(b, c);
+            Assert.Equal(new TimeFrame(new DateTime(2000, 1, 10), new DateTime(2000, 1, 15)), diff[0]);
+            Assert.Equal(new TimeFrame(new DateTime(2000, 1, 20), new DateTime(2000, 1, 30)), diff[1]);
         }
+
     }
 }

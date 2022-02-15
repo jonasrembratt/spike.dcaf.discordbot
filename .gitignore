@@ -2,3 +2,7 @@
 dcaf.discordbot/bin/
 
 dcaf.discordbot/obj/
+
+UnitTests/bin/
+
+UnitTests/obj/
