@@ -20,43 +20,85 @@ namespace DCAF.DiscordBot
         const ulong RaidHelperId = 579155972115660803;
 
         List<TimeFrame> _eventsTimeframes = new();
+        readonly List<EventsCollection> _events = new();
         readonly DcafConfiguration _dcafConfiguration;
         readonly IHttpClientProvider _httpClientProvider;
-        readonly TaskCompletionSource<Outcome<GuildEvent[]>> _loadingTcs = new();
         readonly IDiscordGuild _guild;
         ulong[] _configuredChannels;
+        TaskCompletionSource<Outcome<GuildEvent[]>> _loadingTcs = new();
+        bool _isEventsAligned;
 
-        public Task<Outcome<GuildEvent[]>> ReadEventsAsync(TimeFrame timeframe, ulong[]? channels = null)
+        public Task<Outcome<GuildEvent[]>> ReadEventsAsync(TimeFrame timeframe)
         {
-            channels ??= _configuredChannels;
-            Task.Run(async () =>
-            {
-                try
-                {
-                    var outcome = await getEventsAsync(timeframe, channels);
-                    addTimeframe(timeframe, outcome);
-                    _loadingTcs.SetResult(outcome);
-                }
-                catch (Exception ex)
-                {
-                    _loadingTcs.SetException(ex);
-                }
-            });
+            throw new NotImplementedException();
+            
+            // Task.Run(async () =>
+            // {
+            //     lock (_events)
+            //     {
+            //         alignCachedEvents();
+            //     }
+            //
+            //     // List<TimeFrame> intersected = timeframe.Intersect(_events.Select(i => i.TimeFrame).ToArray());
+            //
+            //
+            //     try
+            //     {
+            //         var outcome = await loadEventsFromSourceAsync(timeframe, _configuredChannels);
+            //         addTimeframe(timeframe, outcome);
+            //         _loadingTcs.SetResult(outcome);
+            //     }
+            //     catch (Exception ex)
+            //     {
+            //         _loadingTcs.SetException(ex);
+            //     }
+            // });
         }
 
-        void addTimeframe(TimeFrame timeFrame, Outcome<GuildEvent[]> outcome)
+        void alignCachedEvents()
         {
-            if (!outcome)
+            if (_isEventsAligned)
                 return;
-
-            var events = outcome.Value!;
-            foreach (var evt in events)
+            
+            _events.Sort((a,b) => a.Compare(b));
+            for (var i = 0; i < _events.Count-1; i++)
             {
-                evt.Date
+                var a = _events[i];
+                var b = _events[i+1];
+                var overlap = a.TimeFrame.GetOverlap(b.TimeFrame);
+                switch (overlap)
+                {
+                    case Overlap.None:
+                        break;
+                    
+                    case Overlap.Full:
+                    case Overlap.Start:
+                    case Overlap.End:
+                        a.TimeFrame = a.TimeFrame.Merge(b.TimeFrame);
+                        a.AddEvents(b);
+                        break;
+                    
+                    default:
+                        throw new ArgumentOutOfRangeException();
+                }
             }
+
+            _isEventsAligned = true;
         }
 
-        async Task<Outcome<GuildEvent[]>> getEventsAsync(TimeFrame timeFrame, ulong[] channels)
+        // void addTimeframe(TimeFrame timeFrame, Outcome<GuildEvent[]> outcome)
+        // {
+        //     if (!outcome)
+        //         return;
+        //
+        //     var events = outcome.Value!;
+        //     foreach (var evt in events)
+        //     {
+        //         evt.Date
+        //     }
+        // }
+
+        async Task<Outcome<GuildEvent[]>> loadEventsFromSourceAsync(TimeFrame timeFrame, ulong[] channels)
         {
             var from = timeFrame.From;
             var to = timeFrame.To;
@@ -173,6 +215,34 @@ namespace DCAF.DiscordBot
             var timeframe = new TimeFrame(DateTime.UtcNow.Subtract(backlog), DateTime.UtcNow);
             _configuredChannels = getEventsChannels(dcafConfiguration);
             ReadEventsAsync(timeframe);
+        }
+    }
+    
+    class EventsCollection
+    {
+        readonly List<GuildEvent> _events = new();
+
+        public TimeFrame TimeFrame { get; set; }
+
+        public IEnumerable<GuildEvent> Events { get; }
+
+        internal int Compare(EventsCollection other)
+        {
+            return TimeFrame.From < other.TimeFrame.From
+                ? -1
+                : TimeFrame.From > other.TimeFrame.From
+                    ? 1
+                    : 0; 
+        }
+
+        internal GuildEvent[] GetEvents(TimeFrame timeFrame) 
+            => 
+            Events.Where(e => e.Date >= timeFrame.From && e.Date <= timeFrame.To).ToArray();
+
+        public void AddEvents(EventsCollection source)
+        {
+            _events.AddRange(source.Events);
+            _events.Sort((a,b) => a.Date < b.Date ? -1 : a.Date > b.Date ? 1 : 0);
         }
     }
 }
