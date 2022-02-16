@@ -169,6 +169,9 @@ namespace DCAF.DiscordBot._lib
         public static TimeFrame[] Subtract(this TimeFrame self, bool isSorted, params TimeFrame[] timeFrames)
         {
             var list = new List<TimeFrame>();
+            if (!timeFrames.Any())
+                return new[] { self };
+            
             if (!isSorted)
             {
                 var sorted = timeFrames.ToList();
@@ -182,9 +185,8 @@ namespace DCAF.DiscordBot._lib
                 switch (diff.Length)
                 {
                     case 0:
-                        if (self.To < nextTimeFrame.From)
-                            return Array.Empty<TimeFrame>();
-                        break;
+                        // time frame is either not overlapping or is fully overlapped by the timeframe 
+                        return Array.Empty<TimeFrame>();
                     
                     case 1:
                         if (diff[0].From >= nextTimeFrame.To)
@@ -217,16 +219,16 @@ namespace DCAF.DiscordBot._lib
                     return new[] { self };
                 
                 case Overlap.Full:
-                    var intersected = new List<TimeFrame>();
+                    var subtracted = new List<TimeFrame>();
                     if (self.From < other.From)
                     {
-                        intersected.Add(new TimeFrame(self.From, other.From));
+                        subtracted.Add(new TimeFrame(self.From, other.From));
                     }
                     if (self.To > other.To)
                     {
-                        intersected.Add(new TimeFrame(other.To, self.To));
+                        subtracted.Add(new TimeFrame(other.To, self.To));
                     }
-                    return intersected.ToArray();
+                    return subtracted.ToArray();
 
                 case Overlap.Start:
                     return self.From < other.From 

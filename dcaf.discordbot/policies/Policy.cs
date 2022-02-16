@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using DCAF.DiscordBot._lib;
 using Discord.Commands;
 using Discord.WebSocket;
+using TetraPak.XP.Logging;
 
 namespace DCAF.DiscordBot.Policies
 {
@@ -13,6 +14,8 @@ namespace DCAF.DiscordBot.Policies
     {
         public PolicyDispatcher Dispatcher { get; }
 
+        public ILog? Log { get; }
+
         public string Name { get; }
         public abstract Task<Outcome> ExecuteAsync(PolicyArgs args);
 
@@ -20,12 +23,14 @@ namespace DCAF.DiscordBot.Policies
 
         public override string ToString() => $"{base.ToString()} ({Name})";
 
-        public Policy(string name, PolicyDispatcher dispatcher)
+        public Policy(string name, PolicyDispatcher dispatcher, ILog? log)
         {
             Name = name ?? throw new ArgumentNullException(nameof(name));
             Dispatcher = dispatcher;
             dispatcher.Add(this);
+            Log = log;
         }
+
     }
 
     public class PolicyArgs

@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using dcaf.discordbot;
 using dcaf.discordbot.Discord;
@@ -10,6 +11,9 @@ using DCAF.DiscordBot.Policies;
 using Discord.Commands;
 using Discord.WebSocket;
 using Microsoft.Extensions.DependencyInjection;
+using TetraPak.XP.Configuration;
+using TetraPak.XP.DependencyInjection;
+using TetraPak.XP.Desktop;
 using TetraPak.XP.Logging;
 using TetraPk.XP.Web.Http;
 
@@ -17,6 +21,43 @@ namespace DCAF.DiscordBot.Services
 {
     static class ServicesHelper
     {
+        public static async Task<IServiceProvider> SetupServicesAsync(
+            DiscordSocketClient client,
+            CancellationTokenSource cts,
+            bool isCliEnabled)
+        {
+            var collection = XpServices.BuildFor().Desktop().GetServiceCollection();
+            collection.AddBasicLogging();
+            collection.AddHttpClientProvider();
+            collection.AddDcafConfiguration(isCliEnabled);
+            collection.AddDiscordService(client, cts);
+            await collection.AddPersonnelSheetAsync();
+            collection.AddGuildEventsrepository();
+            await collection.AddPoliciesAsync();
+            collection.AddDiscordGuild(client);
+            return collection.BuildServiceProvider();
+        }
+
+        public static IServiceCollection AddDcafConfiguration(this IServiceCollection collection, bool isCliEnabled)
+        {
+            collection.AddConfiguration();
+            collection.AddSingleton(p =>
+            {
+                var configuration = p.GetRequiredService<IConfiguration>() as IConfigurationSectionExtended;
+                return new DcafConfiguration(configuration!, isCliEnabled);
+            });
+            return collection;
+        }
+
+        public static IServiceCollection AddDiscordService(
+            this IServiceCollection collection,
+            DiscordSocketClient client, 
+            CancellationTokenSource cts)
+        {
+            collection.AddSingleton(p => new DiscordService(client, cts));
+            return collection;
+        }
+
         public static IServiceCollection AddBasicLogging(this IServiceCollection collection)
         {
             // todo support Discord logging framework instead
@@ -29,8 +70,14 @@ namespace DCAF.DiscordBot.Services
             collection.AddSingleton<IHttpClientProvider, HttpClientProvider>();
             return collection;
         }
+
+        public static IServiceCollection AddEventsRepository(this IServiceCollection collection)
+        {
+            collection.AddSingleton<GuildEventsRepository>();
+            return collection;
+        }
         
-        public static async Task<IServiceCollection> AddPersonnelAsync(this IServiceCollection collection)
+        public static async Task<IServiceCollection> AddPersonnelSheetAsync(this IServiceCollection collection)
         {
             await collection.AddGooglePersonnelSheetAsync();
             collection.AddSingleton<IPersonnel>(p =>
@@ -41,7 +88,7 @@ namespace DCAF.DiscordBot.Services
             return collection;
         }
 
-        public static IServiceCollection AddGuildEvents(this IServiceCollection collection)
+        public static IServiceCollection AddGuildEventsrepository(this IServiceCollection collection)
         {
             collection.AddSingleton<GuildEventsRepository>();
             return collection;
@@ -60,11 +107,15 @@ namespace DCAF.DiscordBot.Services
         }
 
         public static IServiceCollection AddDiscordGuild(
-            this IServiceCollection collection, 
-            DiscordSocketClient discordClient, 
-            ulong guildId)
+            this IServiceCollection collection,
+            DiscordSocketClient discordClient)
         {
-            collection.AddSingleton<IDiscordGuild>(_ => new DiscordGuild(discordClient, guildId));
+            collection.AddSingleton<IDiscordGuild,DiscordGuild>(/* obsolete p =>
+            {
+                var config = p.GetRequiredService<DcafConfiguration>();
+                var discord = p.GetRequiredService<IDiscordService>();
+                return new DiscordGuild(discordClient, config.GetGuildId());
+            }*/);
             return collection;
         }
 

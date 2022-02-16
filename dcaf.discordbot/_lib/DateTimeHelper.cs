@@ -10,11 +10,11 @@ namespace DCAF.DiscordBot._lib
 
         public static class Units
         {
-            public const string DaysIdent = "d";
-            public const string HoursIdent = "h";
-            public const string MinutesIdent = "m";
-            public const string SecondsIdent = "s";
-            public const string MillisecondsIdent = "ms";
+            public const string Days = "d";
+            public const string Hours = "h";
+            public const string Minutes = "m";
+            public const string Seconds = "s";
+            public const string Milliseconds = "ms";
         }
         
         public static bool TryParseTimeSpan(this string stringValue, string defaultUnit, out TimeSpan timeSpan, CultureInfo? cultureInfo = null)
@@ -35,23 +35,23 @@ namespace DCAF.DiscordBot._lib
 
             switch (unit)
             {
-                case Units.DaysIdent:
+                case Units.Days:
                     timeSpan = TimeSpan.FromDays(dValue);
                     return true;
 
-                case Units.HoursIdent:
+                case Units.Hours:
                     timeSpan = TimeSpan.FromHours(dValue);
                     return true;
 
-                case Units.MinutesIdent:
+                case Units.Minutes:
                     timeSpan = TimeSpan.FromMinutes(dValue);
                     return true;
            
-                case Units.SecondsIdent:
+                case Units.Seconds:
                     timeSpan = TimeSpan.FromSeconds(dValue);
                     return true;
 
-                case Units.MillisecondsIdent:
+                case Units.Milliseconds:
                     timeSpan = TimeSpan.FromMilliseconds(dValue);
                     return true;
                 

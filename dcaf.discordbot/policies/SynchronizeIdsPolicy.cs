@@ -5,6 +5,7 @@ using DCAF.DiscordBot._lib;
 using dcaf.discordbot.Discord;
 using DCAF.DiscordBot.Model;
 using Discord.Commands;
+using TetraPak.XP.Logging;
 
 namespace DCAF.DiscordBot.Policies
 {
@@ -22,7 +23,7 @@ namespace DCAF.DiscordBot.Policies
         
         public override async Task<Outcome> ExecuteAsync(PolicyArgs e)
         {
-            var args = e.Parameters;
+            // var args = e.Parameters; obsolete
             // todo Add logging
             var membersWithNoId = _personnel.Where(i => i.Id == Member.MissingId).ToArray();
             var updatedMembers = new List<Member>();
@@ -31,7 +32,7 @@ namespace DCAF.DiscordBot.Policies
                 var outcome = await tryGetMemberDiscordIdAsync(member);
                 if (!outcome)
                 {
-                    // todo log this as a warning
+                    Log.Warning($"{this} cannot resolve member '{member}'");
                     continue;
                 }
 
@@ -63,7 +64,7 @@ namespace DCAF.DiscordBot.Policies
 
         async Task<Outcome<ulong>> tryGetMemberDiscordIdAsync(Member member)
         {
-            var outcome = await _discordGuild.GetDiscordUserWithNameAsync(member.DiscordName!);
+            var outcome = await _discordGuild.GetDiscordUserWithNameAsync(member.DiscordName);
             return outcome
                 ? Outcome<ulong>.Success(outcome.Value!.Id)
                 : Outcome<ulong>.Fail(outcome.Exception!);
@@ -72,8 +73,9 @@ namespace DCAF.DiscordBot.Policies
         public SynchronizeIdsPolicy(
             IPersonnel personnel, 
             IDiscordGuild discordGuild,
-            PolicyDispatcher dispatcher)
-        : base(CommandName, dispatcher)
+            PolicyDispatcher dispatcher,
+            ILog? log)
+        : base(CommandName, dispatcher, log)
         {
             _personnel = personnel;
             _discordGuild = discordGuild;

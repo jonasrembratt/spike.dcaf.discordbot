@@ -2,6 +2,7 @@ using System;
 using System.Threading.Tasks;
 using DCAF.DiscordBot._lib;
 using DCAF.DiscordBot.Model;
+using TetraPak.XP.Logging;
 
 namespace DCAF.DiscordBot.Policies
 {
@@ -31,8 +32,8 @@ namespace DCAF.DiscordBot.Policies
             return Task.FromResult(Outcome.Fail(new Exception("!POLICY IS NOT IMPLEMENTED YET!")));
         }
 
-        public SetAwolPolicy(EventCollection events, IPersonnel personnel, PolicyDispatcher dispatcher)
-        : base("apply-awol", dispatcher)
+        public SetAwolPolicy(EventCollection events, IPersonnel personnel, PolicyDispatcher dispatcher, ILog? log)
+        : base("apply-awol", dispatcher, log)
         {
             _events = events;
             _personnel = personnel;

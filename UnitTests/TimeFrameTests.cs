@@ -103,6 +103,15 @@ namespace UnitTests
             diff = a.Subtract(b, c);
             Assert.Equal(new TimeFrame(new DateTime(2000, 1, 10), new DateTime(2000, 1, 15)), diff[0]);
             Assert.Equal(new TimeFrame(new DateTime(2000, 1, 20), new DateTime(2000, 1, 30)), diff[1]);
+            
+            // a:        <---> 
+            // b+c:  <------------->    <-------->
+            // ==              
+            a = new TimeFrame(new DateTime(2000, 1, 5), new DateTime(2000, 1, 10));
+            b = new TimeFrame(new DateTime(2000, 1, 1), new DateTime(2000, 1, 15));
+            c = new TimeFrame(new DateTime(2000, 1, 20), new DateTime(2000, 1, 30));
+            diff = a.Subtract(b, c);
+            Assert.Empty(diff);
         }
 
     }

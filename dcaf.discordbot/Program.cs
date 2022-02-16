@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using DCAF.DiscordBot;
 using DCAF.DiscordBot._lib;
@@ -9,8 +10,6 @@ using DCAF.DiscordBot.Services;
 using Discord;
 using Discord.WebSocket;
 using Microsoft.Extensions.DependencyInjection;
-using TetraPak.XP.DependencyInjection;
-using TetraPak.XP.Desktop;
 using TetraPak.XP.Logging;
 
 namespace dcaf.discordbot
@@ -18,14 +17,13 @@ namespace dcaf.discordbot
     class Program
     {
         const string DcafBotTokenIdent = "DCAF_BOT_TOKEN"; 
-        internal const ulong DcafGuildId = 272872335608905728;
+        // internal const ulong DcafGuildId = 272872335608905728;
         const string KeyWord = "!dcaf";
         static bool s_isPoliciesAvailable;
         static bool s_isPersonnelReady;
         
         static DiscordSocketClient _client;
-
-        // public static IServiceProvider Services { get; private set; }
+        static ILog? _log;
 
         static async Task Main(string[] args)
         {
@@ -33,14 +31,19 @@ namespace dcaf.discordbot
             {
                 GatewayIntents = GatewayIntents.GuildMembers | GatewayIntents.Guilds
             };
+            var cts = new CancellationTokenSource();
             _client = new DiscordSocketClient(config);
             _client.Log += onLog;
             _client.MessageReceived += onMessageReceived;
-            var services = await setupServicesAsync(_client, DcafGuildId);
+            var isCliEnabled = isCli(args, out var policyName, out var cliParams); 
+            var services = await ServicesHelper.SetupServicesAsync(_client, cts, isCliEnabled);
+            _log = services.GetService<ILog>();
             var personnel = services.GetRequiredService<IPersonnel>();
             personnel.Ready += (_, _) => s_isPersonnelReady = true;
             _client.Ready += () =>
             {
+                var discord = services.GetRequiredService<DiscordService>();
+                discord.ClientIsReady();
                 services.ActivatePolicies();
                 s_isPoliciesAvailable = true;
                 return Task.CompletedTask;
@@ -49,15 +52,15 @@ namespace dcaf.discordbot
             await _client.LoginAsync(TokenType.Bot, botToken);
             await _client.StartAsync();
 
-            if (!isCli(args, out var policyName, out var cliParams))
+            if (!isCliEnabled)
             {
-                await Task.Delay(-1);
+                await Task.Delay(-1, cts.Token);
                 return;
             }
             
             waitForClientToGetReady();
             var policyDispatcher = services.GetRequiredService<PolicyDispatcher>();
-            Console.WriteLine("Bot is running in local CLI mode ...");
+            _log.Information("Bot is running in local CLI mode ...");
             
             policyName ??= promptForPolicy(out cliParams);
             var policyArgs = PolicyArgs.FromCli(cliParams);
@@ -65,15 +68,20 @@ namespace dcaf.discordbot
             {
                 if (!policyDispatcher.TryGetPolicy(policyName, out var policy))
                 {
-                    Console.WriteLine($"Unknown policy: {policyName}");
+                    _log.Warning($"Unknown policy: {policyName}");
                     policyName = promptForPolicy(out cliParams);
                     continue;
                 }
 
                 var outcome = await policy.ExecuteAsync(policyArgs);
-                Console.WriteLine(!outcome 
-                    ? outcome.Exception!.Message 
-                    : $"{policy.Name} completed successfully{(outcome.HasMessage ? $": {outcome.Message}" : "" )}");
+                if (!outcome)
+                {
+                    _log.Error(outcome.Exception!);
+                }
+                else
+                {
+                    _log.Information($"{policy.Name} completed successfully{(outcome.HasMessage ? $": {outcome.Message}" : "" )}");
+                }
                 policyName = promptForPolicy(out cliParams);
                 policyArgs = PolicyArgs.FromCli(cliParams);
             }
@@ -128,18 +136,6 @@ namespace dcaf.discordbot
             return true;
         }
 
-        static async Task<IServiceProvider> setupServicesAsync(DiscordSocketClient client, ulong guildId)
-        {
-            var collection = XpServices.BuildFor().Desktop().GetServiceCollection();
-            collection.AddSingleton(_client);
-            collection.AddHttpClientProvider();
-            collection.AddBasicLogging();
-            await collection.AddPersonnelAsync();
-            await collection.AddPoliciesAsync();
-            collection.AddDiscordGuild(client, guildId);
-            return collection.BuildServiceProvider();
-        }
-
         static async Task onMessageReceived(SocketMessage msg) // todo consider supporting the Commands framework instead
         {
             if (!msg.Content.StartsWith(KeyWord))
@@ -186,10 +182,37 @@ namespace dcaf.discordbot
 
         static Task onLog(LogMessage msg)
         {
-            Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine($"===> [Bot] {msg.ToString()}");
-            Console.ResetColor();
+            var rank = msg.Severity.ToLogRank();
+            _log?.Write(rank, msg.Message, msg.Exception);
             return Task.CompletedTask;
         } 
+    }
+
+    static class LogHelper
+    {
+        public static LogRank ToLogRank(this LogSeverity severity)
+        {
+            switch (severity)
+            {
+                case LogSeverity.Critical:
+                case LogSeverity.Error:
+                    return LogRank.Error;
+                
+                case LogSeverity.Warning:
+                    return LogRank.Warning;
+                
+                case LogSeverity.Info:
+                    return LogRank.Information;
+                
+                case LogSeverity.Verbose:
+                    return LogRank.Debug;
+                
+                case LogSeverity.Debug:
+                    return LogRank.Trace;
+                
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(severity), severity, null);
+            }
+        }
     }
 }

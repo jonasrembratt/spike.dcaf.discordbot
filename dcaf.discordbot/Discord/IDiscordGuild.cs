@@ -6,10 +6,8 @@ namespace dcaf.discordbot.Discord
 {
     public interface IDiscordGuild
     {
-        DiscordSocketClient DiscordClient { get; }
-        
-        SocketGuild SocketGuild { get; }
-        
+        Task<SocketGuild> GetSocketGuildAsync();
+
         Task<Outcome<SocketGuildUser>> GetDiscordUserWithNameAsync(DiscordName discordName);
         
         Task<Outcome> ResetAsync();

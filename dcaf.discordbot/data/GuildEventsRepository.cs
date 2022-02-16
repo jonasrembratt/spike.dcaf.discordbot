@@ -10,6 +10,8 @@ using DCAF.DiscordBot._lib;
 using dcaf.discordbot.Discord;
 using DCAF.DiscordBot.Model;
 using Discord;
+using TetraPak.XP.Configuration;
+using TetraPak.XP.Logging;
 using TetraPk.XP.Web.Http;
 
 namespace DCAF.DiscordBot
@@ -22,52 +24,80 @@ namespace DCAF.DiscordBot
         readonly List<EventsCollection> _events = new();
         readonly IHttpClientProvider _httpClientProvider;
         readonly IDiscordGuild _guild;
-        readonly ulong[] _configuredChannels;
-        TaskCompletionSource<Outcome<GuildEvent[]>> _loadingTcs = new();
+        readonly DcafConfiguration _config;
+        TimeFrame? _loadingTimeframe;
         bool _isEventsAligned;
+        readonly ILog? _log;
 
-        public Task<Outcome<GuildEvent[]>> ReadEventsAsync(TimeFrame timeframe)
+        public Task<Outcome<GuildEvent[]>> ReadEventsAsync(
+            TimeFrame timeFrame,
+            CancellationToken? cancellationToken = null,
+            TimeSpan? timeout = null)
         {
-            Task.Run(async () =>
+            cancellationToken ??= CancellationToken.None;
+            timeout ??= TimeSpan.Zero;
+            var expire = DateTime.Now.Add(timeout.Value);
+            return Task.Run(async () =>
             {
                 var result = new List<GuildEvent>();
                 TimeFrame[] unloadedTimeFrames;
                 lock (_events)
                 {
-                    _loadingTcs.AwaitResult(); // awaits ongoing operation
+                    if (!continueWhenLoadingOverlappingTimeFrameIsDone())
+                        return Outcome<GuildEvent[]>.Fail(
+                            new Exception(isCancelled() ? "Operation was cancelled" : "Operation timed out"));
+
+                    _loadingTimeframe = timeFrame;
                     alignCachedEvents();
                     var allTimeframes = _events.Select(ec => ec.TimeFrame).ToArray();
-                    var overlappingTimeframes = timeframe.GetOverlapping(allTimeframes);
-                    result.AddRange(getExistingEvents(timeframe));
-                    unloadedTimeFrames = timeframe.Subtract(overlappingTimeframes);
-                    _loadingTcs = new TaskCompletionSource<Outcome<GuildEvent[]>>();
+                    var overlappingTimeframes = timeFrame.GetOverlapping(allTimeframes);
+                    result.AddRange(getExistingEvents(timeFrame));
+                    unloadedTimeFrames = timeFrame.Subtract(overlappingTimeframes);
                 }
 
                 try
                 {
                     foreach (var loadTimeframe in unloadedTimeFrames)
                     {
-                        var outcome = await loadEventsFromSourceAsync(loadTimeframe, _configuredChannels);
+                        var outcome = await loadEventsFromSourceAsync(loadTimeframe/*, _configuredChannels*/);
                         if (!outcome)
-                        {
-                            _loadingTcs.SetResult(outcome);
-                            return;
-                        }
+                            return Outcome<GuildEvent[]>.Fail(outcome.Exception!);
 
                         _events.Add(new EventsCollection(loadTimeframe, outcome.Value!));
                         result.AddRange(outcome.Value!);
                     }
-                    
+
                     _isEventsAligned = false;
-                    _loadingTcs.SetResult(Outcome<GuildEvent[]>.Success(result.ToArray()));
+                    return Outcome<GuildEvent[]>.Success(result.ToArray());
                 }
                 catch (Exception ex)
                 {
-                    _loadingTcs.SetException(ex);
+                    return Outcome<GuildEvent[]>.Fail(ex);
                 }
-            });
+                finally
+                {
+                    _loadingTimeframe = null;
+                }
+                
+                bool continueWhenLoadingOverlappingTimeFrameIsDone()
+                {
+                    if (_loadingTimeframe is null || _loadingTimeframe.GetOverlap(timeFrame) == Overlap.None)
+                        return true;
 
-            return _loadingTcs.Task;
+                    
+                    while (_loadingTimeframe is {} && !isCancelled() && !isExpired())
+                    {
+                        Task.Delay(20);
+                    }
+
+                    return !isCancelled() && !isExpired();
+                }
+
+                bool isCancelled() => cancellationToken.Value.IsCancellationRequested;
+
+                bool isExpired() => timeout.Value != TimeSpan.Zero && DateTime.Now >= expire; 
+
+            });
         }
 
         IEnumerable<GuildEvent> getExistingEvents(TimeFrame timeFrame)
@@ -99,7 +129,7 @@ namespace DCAF.DiscordBot
 
         void alignCachedEvents()
         {
-            if (_isEventsAligned)
+            if (_isEventsAligned || !_events.Any())
                 return;
             
             _events.Sort((a,b) => a.Compare(b));
@@ -128,29 +158,22 @@ namespace DCAF.DiscordBot
             _isEventsAligned = true;
         }
 
-        // void addTimeframe(TimeFrame timeFrame, Outcome<GuildEvent[]> outcome)
-        // {
-        //     if (!outcome)
-        //         return;
-        //
-        //     var events = outcome.Value!;
-        //     foreach (var evt in events)
-        //     {
-        //         evt.Date
-        //     }
-        // }
-
-        async Task<Outcome<GuildEvent[]>> loadEventsFromSourceAsync(TimeFrame timeFrame, ulong[] channels)
+        async Task<Outcome<GuildEvent[]>> loadEventsFromSourceAsync(TimeFrame timeFrame)
         {
             var from = timeFrame.From;
             var to = timeFrame.To;
             var eventList = new List<GuildEvent>();
             var ct = CancellationToken.None;
 
-            for (var c = 0; c < channels.Length; c++)
+            for (var c = 0; c < _config.Events!.Channels.Length; c++)
             {
-                var channel = _guild.SocketGuild.GetChannel(channels[c]) as IMessageChannel;
-                var messages = channel!.GetMessagesAsync();
+                var socketGuild = await _guild.GetSocketGuildAsync();
+                var channelId = _config.Events!.Channels[c];
+                if (socketGuild.GetChannel(channelId) is not IMessageChannel channel)
+                    throw new ConfigurationException($"Channel is not supported: {channelId}" +
+                                                     $"({new ConfigPath(_config.Events!.Path).Push(nameof(EventsConfiguration.Channels))}[{c}])");
+
+                var messages = channel.GetMessagesAsync();
                 await foreach (var msgArray in messages.WithCancellation(ct))
                 {
                     foreach (var message in msgArray)
@@ -167,7 +190,7 @@ namespace DCAF.DiscordBot
                             return Outcome<GuildEvent[]>.Fail(rhEventOutcome.Exception!);
 
                         var rhEvent = rhEventOutcome.Value!;
-                        var guildEvent = new GuildEvent(rhEvent);
+                        var guildEvent = new GuildEvent(rhEvent, _log);
                         eventList.Add(guildEvent);
                     }
                 }
@@ -230,31 +253,26 @@ namespace DCAF.DiscordBot
             return true;
         }
         
-        static TimeSpan resolveEventsTimeframe(DcafConfiguration config)
-        {
-            if (string.IsNullOrWhiteSpace(config.Events?.Backlog))
-                return TimeSpan.FromDays(30);
-
-            return config.Events!.Backlog!.TryParseTimeSpan(DateTimeHelper.Units.DaysIdent, out var timeSpan)
-                ? timeSpan
-                : throw new FormatException($"Unrecognized events backlog configuration: {config.Events!.Backlog!}");
-        }
-
-        static ulong[] getEventsChannels(DcafConfiguration config)
-        {
-            if (!config.Events?.Channels?.Any() ?? true)
-                throw new InvalidOperationException($"No {nameof(DcafConfiguration.Events)} or channels is configured");
-
-            return config.Events.Values.Where(i => i is ulong).Cast<ulong>().ToArray();
-        }
+        // static ulong[] getEventsChannels(DcafConfiguration config) obsolete
+        // {
+        //     if (!config.Events?.Channels.Any() ?? true)
+        //         throw new InvalidOperationException($"No {nameof(DcafConfiguration.Events)} or channels is configured");
+        //
+        //     return config.Events.Channels.ToArray();
+        // }
         
-        public GuildEventsRepository(DcafConfiguration dcafConfiguration, IDiscordGuild guild, IHttpClientProvider httpClientProvider)
+        public GuildEventsRepository(
+            DcafConfiguration dcafConfiguration, 
+            IDiscordGuild guild, 
+            IHttpClientProvider httpClientProvider,
+            ILog? log)
         {
+            _config = dcafConfiguration;
             _guild = guild;
             _httpClientProvider = httpClientProvider;
-            var backlog = resolveEventsTimeframe(dcafConfiguration);
+            _log = log;
+            var backlog = dcafConfiguration.GetBacklogTimeSpan();
             var timeframe = new TimeFrame(DateTime.UtcNow.Subtract(backlog), DateTime.UtcNow);
-            _configuredChannels = getEventsChannels(dcafConfiguration);
             ReadEventsAsync(timeframe);
         }
     }

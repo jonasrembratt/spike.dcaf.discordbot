@@ -51,9 +51,7 @@ namespace DCAF.DiscordBot.Google
             var request = Service.Spreadsheets.Values.Get(DocumentId, range);
             try
             {
-                Console.WriteLine($"### Reads sheet: {columns.ToString(rows)} ..."); // nisse
                 var valueRange = await request.ExecuteAsync();
-                Console.WriteLine($"### Reads sheet: {columns.ToString(rows)} DONE!"); // nisse
                 return Outcome<ValueRange>.Success(valueRange);
             }
             catch (Exception ex)

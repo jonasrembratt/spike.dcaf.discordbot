@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using DCAF.DiscordBot._lib;
+using TetraPak.XP.Logging;
 
 namespace DCAF.DiscordBot.Policies
 {
@@ -52,13 +53,13 @@ namespace DCAF.DiscordBot.Policies
             return Outcome.Fail(new Exception(sb.ToString()));
         }
 
-        public override async Task<Outcome> ResetCacheAsync()
+        public override Task<Outcome> ResetCacheAsync()
         {
             throw new NotSupportedException();
         }
 
-        public ResetPolicy(PolicyDispatcher dispatcher) 
-        : base("reset", dispatcher)
+        public ResetPolicy(PolicyDispatcher dispatcher, ILog? log) 
+        : base("reset", dispatcher, log)
         {
         }
     }

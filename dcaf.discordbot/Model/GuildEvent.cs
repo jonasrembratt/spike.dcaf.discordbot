@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.Linq;
+using TetraPak.XP.Logging;
 
 namespace DCAF.DiscordBot.Model
 {
@@ -19,7 +20,7 @@ namespace DCAF.DiscordBot.Model
 
         public override string ToString() => $"{Title} {Date:s} ({Signups.Length} signups)";
 
-        public GuildEvent(RaidHelperEvent rhEvent)
+        public GuildEvent(RaidHelperEvent rhEvent, ILog? log)
         {
             Title = rhEvent.Title;
             try
@@ -30,7 +31,7 @@ namespace DCAF.DiscordBot.Model
             }
             catch (Exception e)
             {
-                Console.WriteLine(e); // nisse
+                log.Error(e);
                 throw;
             }
         }
