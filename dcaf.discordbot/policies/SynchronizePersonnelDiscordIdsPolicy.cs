@@ -9,21 +9,16 @@ using TetraPak.XP.Logging;
 
 namespace DCAF.DiscordBot.Policies
 {
-    public class SynchronizeIdsPolicy : Policy
+    public class SynchronizePersonnelDiscordIdsPolicy : Policy
     {
-        const string CommandName = "sync-ids";
+        const string PolicyName = "Synchronize Personnel Discord IDs";
         
         // readonly EventCollection _events;
         readonly IPersonnel _personnel;
         readonly IDiscordGuild _discordGuild;
-
-        [Command(CommandName)]
-        [Summary("Ensures members in the Google sheet Personnel Sheet are assigned correct Discord IDs")]
-        public Task SyncIds() => ExecuteAsync(PolicyArgs.FromSocketMessage(Context.Message));
         
         public override async Task<Outcome> ExecuteAsync(PolicyArgs e)
         {
-            // var args = e.Parameters; obsolete
             // todo Add logging
             var membersWithNoId = _personnel.Where(i => i.Id == Member.MissingId).ToArray();
             var updatedMembers = new List<Member>();
@@ -64,18 +59,18 @@ namespace DCAF.DiscordBot.Policies
 
         async Task<Outcome<ulong>> tryGetMemberDiscordIdAsync(Member member)
         {
-            var outcome = await _discordGuild.GetDiscordUserWithNameAsync(member.DiscordName);
+            var outcome = await _discordGuild.GetUserWithNameAsync(member.DiscordName);
             return outcome
                 ? Outcome<ulong>.Success(outcome.Value!.Id)
                 : Outcome<ulong>.Fail(outcome.Exception!);
         }
 
-        public SynchronizeIdsPolicy(
+        public SynchronizePersonnelDiscordIdsPolicy(
             IPersonnel personnel, 
             IDiscordGuild discordGuild,
             PolicyDispatcher dispatcher,
             ILog? log)
-        : base(CommandName, dispatcher, log)
+        : base(PolicyName, dispatcher, log)
         {
             _personnel = personnel;
             _discordGuild = discordGuild;

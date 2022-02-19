@@ -8,8 +8,10 @@ namespace dcaf.discordbot.Discord
     {
         Task<SocketGuild> GetSocketGuildAsync();
 
-        Task<Outcome<SocketGuildUser>> GetDiscordUserWithNameAsync(DiscordName discordName);
+        Task<Outcome<SocketGuildUser>> GetUserWithNameAsync(DiscordName discordName);
         
+        Task<Outcome<SocketGuildUser>> GetUserAsync(ulong id);
+
         Task<Outcome> ResetAsync();
     }
 }

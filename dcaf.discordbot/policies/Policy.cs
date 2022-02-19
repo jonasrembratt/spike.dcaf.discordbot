@@ -3,20 +3,20 @@ using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using DCAF.DiscordBot._lib;
-using Discord.Commands;
 using Discord.WebSocket;
 using TetraPak.XP.Logging;
 
 namespace DCAF.DiscordBot.Policies
 {
     [DebuggerDisplay("{ToString()}")]
-    public abstract class Policy : ModuleBase<SocketCommandContext>
+    public abstract class Policy //: ModuleBase<SocketCommandContext> obsolete
     {
         public PolicyDispatcher Dispatcher { get; }
 
         public ILog? Log { get; }
 
         public string Name { get; }
+        
         public abstract Task<Outcome> ExecuteAsync(PolicyArgs args);
 
         public abstract Task<Outcome> ResetCacheAsync();
@@ -33,7 +33,7 @@ namespace DCAF.DiscordBot.Policies
 
     }
 
-    public class PolicyArgs
+    public class PolicyArgs 
     {
         public bool IsCliMessage { get; private set; }
 

@@ -56,7 +56,7 @@ namespace dcaf.discordbot.Discord
         public DiscordName(string name)
         {
             _stringValue = name;
-            var split = name.Split('#');
+            var split = name.Split('#', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
             switch (split.Length)
             {
                 case 0:

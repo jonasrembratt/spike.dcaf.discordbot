@@ -13,6 +13,7 @@ namespace dcaf.discordbot.Discord
         TaskCompletionSource<Outcome<SocketGuildUser[]>?> _loadUsersTcs = new();
         Outcome<SocketGuildUser[]>? _usersOutcome;
         Dictionary<DiscordName, SocketGuildUser>? _discordNameIndex;
+        Dictionary<ulong, SocketGuildUser>? _userIdIndex;
         DateTime _lastReadUsers = DateTime.MinValue;
         SocketGuild? _socketGuild;
 
@@ -29,7 +30,7 @@ namespace dcaf.discordbot.Discord
             return _socketGuild = client.GetGuild(GuildId) ?? throw new ArgumentOutOfRangeException($"Guild not found: {GuildId}");
         }
 
-        public async Task<Outcome<SocketGuildUser>> GetDiscordUserWithNameAsync(DiscordName discordName)
+        public async Task<Outcome<SocketGuildUser>> GetUserWithNameAsync(DiscordName discordName)
         {
             var outcome = await getUsersAsync();
             if (!outcome)
@@ -40,6 +41,20 @@ namespace dcaf.discordbot.Discord
                 ? Outcome<SocketGuildUser>.Success(user) 
                 : Outcome<SocketGuildUser>.Fail( 
                     new ArgumentOutOfRangeException($"Could not find discord user {discordName}"));
+        }
+
+        public async Task<Outcome<SocketGuildUser>> GetUserAsync(ulong id)
+        {
+            var outcome = await getUsersAsync();
+            if (!outcome)
+                return Outcome<SocketGuildUser>.Fail(
+                    new ArgumentOutOfRangeException(
+                        $"Cound not find discord user with id {id.ToString()}. {outcome.Exception!.Message}"));
+            
+            return _userIdIndex!.TryGetValue(id, out var user)
+                ? Outcome<SocketGuildUser>.Success(user) 
+                : Outcome<SocketGuildUser>.Fail( 
+                    new ArgumentOutOfRangeException($"Could not find discord user with id {id.ToString()}"));
         }
 
         public Task<Outcome> ResetAsync()
@@ -73,7 +88,8 @@ namespace dcaf.discordbot.Discord
                 {
                     await socketGuild.DownloadUsersAsync();
                     var users = socketGuild.Users.ToArray();
-                    _discordNameIndex = users.ToDictionary(i => new DiscordName(i.Username, i.Discriminator));
+                    _discordNameIndex = users.ToDictionary(user => new DiscordName(user.Username, user.Discriminator));
+                    _userIdIndex = users.ToDictionary(user => user.Id);
                     _loadUsersTcs.SetResult(_usersOutcome = Outcome<SocketGuildUser[]>.Success(users));
                     _lastReadUsers = DateTime.Now;
                 }

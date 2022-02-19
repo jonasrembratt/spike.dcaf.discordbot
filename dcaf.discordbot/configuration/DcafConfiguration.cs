@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using DCAF.DiscordBot._lib;
+using dcaf.discordbot.Discord;
 using TetraPak.XP.Configuration;
 using TetraPak.XP.Logging;
 
@@ -11,6 +12,17 @@ namespace dcaf.discordbot
         EventsConfiguration? _events;
         
         public ulong GuildId => Get<ulong>();
+
+        public DiscordName? BotName
+        {
+            get
+            {
+                var name = Get<string?>();
+                return string.IsNullOrWhiteSpace(name) 
+                    ? null 
+                    : new DiscordName(name);
+            }
+        }
 
         public bool IsCliEnabled { get; }
 

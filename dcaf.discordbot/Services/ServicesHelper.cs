@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using dcaf.discordbot;
+using DCAF.DiscordBot.Commands;
 using dcaf.discordbot.Discord;
 using DCAF.DiscordBot.Google;
 using DCAF.DiscordBot.Model;
@@ -21,8 +22,8 @@ namespace DCAF.DiscordBot.Services
 {
     static class ServicesHelper
     {
-        public static async Task<IServiceProvider> SetupServicesAsync(
-            DiscordSocketClient client,
+        public static async Task<IServiceProvider> ConfigureServicesAsync(
+            this DiscordSocketClient client,
             CancellationTokenSource cts,
             bool isCliEnabled)
         {
@@ -34,8 +35,15 @@ namespace DCAF.DiscordBot.Services
             await collection.AddPersonnelSheetAsync();
             collection.AddGuildEventsrepository();
             await collection.AddPoliciesAsync();
+            collection.AddSingleton(p => client);
             collection.AddDiscordGuild(client);
-            return collection.BuildServiceProvider();
+            collection.AddSingleton<CommandService>();
+            collection.AddSingleton<CommandHandler>();
+            
+            var services = collection.BuildServiceProvider();
+            var commandHandler = services.GetRequiredService<CommandHandler>();
+            await commandHandler.InstallCommandsAsync(services);
+            return services;
         }
 
         public static IServiceCollection AddDcafConfiguration(this IServiceCollection collection, bool isCliEnabled)
@@ -129,7 +137,7 @@ namespace DCAF.DiscordBot.Services
             collection.AddSingleton(p => loadEventsOutcome.Value!);
             collection.AddSingleton<CommandService>();
             collection.AddSingleton<PolicyDispatcher>();
-            collection.AddSingleton<SynchronizeIdsPolicy>();
+            collection.AddSingleton<SynchronizePersonnelDiscordIdsPolicy>();
             collection.AddSingleton<ResetPolicy>();
             collection.AddSingleton<SetAwolPolicy>();
             collection.AddSingleton<GetStuffPolicy>();
