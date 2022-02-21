@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
-using TetraPak.XP;
 using TetraPak.XP.DynamicEntities;
 using TetraPak.XP.Serialization;
 

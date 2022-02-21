@@ -1,6 +1,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 using Discord.WebSocket;
+using TetraPak.XP;
 
 namespace dcaf.discordbot.Discord
 {
@@ -16,7 +17,13 @@ namespace dcaf.discordbot.Discord
             return _client;
         }
 
-        internal void ClientIsReady() => _clientReadyTcs.SetResult(true);
+        internal void SetReady()
+        {
+            if (!_clientReadyTcs.IsFinished())
+            {
+                _clientReadyTcs.SetResult(true);
+            }
+        }
 
         public void Exit()
         {

@@ -1,61 +1,132 @@
-using System;
+using System.Diagnostics.CodeAnalysis;
+using System.IO;
+using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 using DCAF.DiscordBot.Policies;
+using Discord;
 using Discord.Commands;
-using Discord.WebSocket;
 
 namespace DCAF.DiscordBot.Commands
 {
-    [Group("personnel")]
-    public class PersonnelModule : ModuleBase<SocketCommandContext>
+    [SuppressMessage("ReSharper", "UnusedMember.Global")]
+    partial class DcafCommandGroup
     {
-        readonly PolicyDispatcher _policyDispatcher;
-
-        [Command("sync-ids")]
-        [Summary("Ensures members in the Google sheet Personnel sheet are assigned correct Discord IDs")]
-        public Task SyncIds(
-            [Summary("Specifies whether all members of the Personnel sheet with unrecognized Discord names should be listed")]
-            bool listUnrecognised = false)
+        [Group("personnel")]
+        public class PersonnelModule : ModuleBase<SocketCommandContext>
         {
-            throw new NotImplementedException();
-        }
+            readonly PolicyDispatcher _policyDispatcher;
 
-        public PersonnelModule(PolicyDispatcher policyDispatcher)
-        {
-            _policyDispatcher = policyDispatcher;
+            const string OutputListUnmatched = "list-unmatched";
+
+            [Command("set-awol")]
+            [Summary("Examines all personnel that hasn't responded to roll-calls and sets them as 'AWOL'")]
+            public async Task ApplyAwol(
+                [Summary("(optional) Specifies a timespan (eg. '48h', '2w' or '30d') for allowed RSVP")]
+                SetAwolArgs? args = null)
+            {
+                if (!_policyDispatcher.TryGetPolicy<SetAwolPolicy>(out var policy))
+                {
+                    await ReplyAsync("Policy is unavailable");
+                    return;
+                }
+
+                args ??= SetAwolArgs.Default;
+                var allowedOutcome = args.GetAllowed();
+                if (!allowedOutcome)
+                {
+                    await ReplyAsync(allowedOutcome.Message);
+                    return;
+                }
+
+                var rsvpOutcome = args.GetRsvp();
+                if (!rsvpOutcome)
+                {
+                    await ReplyAsync(rsvpOutcome.Message);
+                    return;
+                }
+
+                var outcome = await policy.ExecuteAsync(args);
+                if (!outcome)
+                {
+                    await ReplyAsync(outcome.Message);
+                    return;
+                }
+
+                var result = outcome.Value!;
+                if (!result.AwolMembers.Any())
+                {
+                    await ReplyAsync(result.Message);
+                    return;
+                }
+                
+                var sb = new StringBuilder();
+                sb.AppendLine("These members have now been set as 'AWOL':");
+                foreach (var awolMember in result.AwolMembers)
+                {
+                    sb.AppendLine(awolMember.ToString());
+                }
+                
+                if (result.AwolMembers.Length < 5)
+                {
+                    await ReplyAsync(sb.ToString());
+                    return;
+                }
+
+                var tempFile = new FileInfo(Path.GetTempFileName());
+                await File.WriteAllTextAsync(tempFile.FullName, sb.ToString());
+                var attachment = new FileAttachment(tempFile.FullName, "awol.txt");
+                await Context.Channel.SendFileAsync(attachment);
+            }
+
+            [Command("sync-ids")]
+            [Summary("Ensures members in the Google sheet Personnel sheet are assigned correct Discord IDs")]
+            public async Task SyncIds()
+            {
+                if (!_policyDispatcher.TryGetPolicy<SynchronizePersonnelDiscordIdsPolicy>(out var policy))
+                {
+                    await ReplyAsync("Policy is unavailable");
+                    return;
+                }
+
+                var args = PolicyArgs.FromSocketMessage(Context.Message);
+                var outcome = await policy.ExecuteAsync();
+                if (!outcome)
+                {
+                    await ReplyAsync($"Failed when synchronising member Discord IDs. {outcome.Message}");
+                    return;
+                }
+
+                await ReplyAsync($"{outcome.Value!.UpdatedMembers.Length} members was successfully updated");
+
+                var result = outcome.Value!;
+                if (!result.UnmatchedMembers.Any())
+                    return;
+
+                var sb = new StringBuilder();
+                sb.AppendLine("These members have discord names that needs to be updated in the Sheet:");
+                foreach (var unmatchedMember in result.UnmatchedMembers)
+                {
+                    sb.AppendLine(unmatchedMember.ToString());
+                }
+                
+                if (result.UnmatchedMembers.Length < 5)
+                {
+                    await ReplyAsync(sb.ToString());
+                    return;
+                }
+
+                var tempFile = new FileInfo(Path.GetTempFileName());
+                await File.WriteAllTextAsync(tempFile.FullName, sb.ToString());
+                var attachment = new FileAttachment(tempFile.FullName, "unmatched.txt");
+                await Context.Channel.SendFileAsync(attachment);
+            }
+
+            public PersonnelModule(PolicyDispatcher policyDispatcher)
+            {
+                _policyDispatcher = policyDispatcher;
+            }
         }
     }
-    
-    [Group("sample")]
-    public class SampleModule : ModuleBase<SocketCommandContext>
-    {
-        // ~sample square 20 -> 400
-        [Command("square")]
-        [Summary("Squares a number.")]
-        public async Task SquareAsync(
-            [Summary("The number to square.")] 
-            int num)
-        {
-            // We can also access the channel from the Command Context.
-            await Context.Channel.SendMessageAsync($"{num}^2 = {Math.Pow(num, 2)}");
-        }
 
-        // ~sample userinfo --> foxbot#0282
-        // ~sample userinfo @Khionu --> Khionu#8708
-        // ~sample userinfo Khionu#8708 --> Khionu#8708
-        // ~sample userinfo Khionu --> Khionu#8708
-        // ~sample userinfo 96642168176807936 --> Khionu#8708
-        // ~sample whois 96642168176807936 --> Khionu#8708
-        [Command("userinfo")]
-        [Summary
-            ("Returns info about the current user, or the user parameter, if one passed.")]
-        [Alias("user", "whois")]
-        public async Task UserInfoAsync(
-            [Summary("The (optional) user to get info from")]
-            SocketUser user = null)
-        {
-            var userInfo = user ?? Context.Client.CurrentUser;
-            await ReplyAsync($"{userInfo.Username}#{userInfo.Discriminator}");
-        }
-    }
 }

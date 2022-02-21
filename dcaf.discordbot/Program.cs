@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -10,6 +11,7 @@ using DCAF.DiscordBot.Services;
 using Discord;
 using Discord.WebSocket;
 using Microsoft.Extensions.DependencyInjection;
+using TetraPak.XP;
 using TetraPak.XP.Configuration;
 using TetraPak.XP.Logging;
 
@@ -47,11 +49,8 @@ namespace dcaf.discordbot
             s_client.Ready += () =>
             {
                 var discord = s_services.GetRequiredService<DiscordService>();
-                discord.ClientIsReady();
-                if (isCliEnabled)
-                {
-                    s_services.ActivatePolicies();
-                }
+                discord.SetReady();
+                s_services.ActivatePolicies();
                 s_isPoliciesAvailable = true;
                 return Task.CompletedTask;
             };

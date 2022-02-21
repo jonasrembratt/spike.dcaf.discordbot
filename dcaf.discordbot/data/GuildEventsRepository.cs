@@ -10,6 +10,7 @@ using DCAF.DiscordBot._lib;
 using dcaf.discordbot.Discord;
 using DCAF.DiscordBot.Model;
 using Discord;
+using TetraPak.XP;
 using TetraPak.XP.Configuration;
 using TetraPak.XP.Logging;
 using TetraPk.XP.Web.Http;
@@ -59,7 +60,7 @@ namespace DCAF.DiscordBot
                 {
                     foreach (var loadTimeframe in unloadedTimeFrames)
                     {
-                        var outcome = await loadEventsFromSourceAsync(loadTimeframe/*, _configuredChannels*/);
+                        var outcome = await loadEventsFromSourceAsync(loadTimeframe);
                         if (!outcome)
                             return Outcome<GuildEvent[]>.Fail(outcome.Exception!);
 
@@ -212,7 +213,7 @@ namespace DCAF.DiscordBot
             retry:
             var response = await client.GetAsync($"https://raid-helper.dev/api/event/{eventId.ToString()}", cancellationToken);
             var retryAfter = TimeSpan.Zero;
-            if (!response.IsSuccessStatusCode || isRateLimited(response, out retryAfter))
+            if (isRateLimited(response, out retryAfter) || !response.IsSuccessStatusCode)
             {
                 if (retryAfter == TimeSpan.Zero)
                     return Outcome<RaidHelperEvent>.Fail(new Exception(response.ReasonPhrase));

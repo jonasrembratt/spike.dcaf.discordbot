@@ -10,9 +10,11 @@ namespace DCAF.DiscordBot.Commands
     {
         readonly DiscordSocketClient _client;
         readonly CommandService _commands;
+        IServiceProvider _services;
 
         public async Task InstallCommandsAsync(IServiceProvider services)
         {
+            _services = services;
             _client.MessageReceived += onCommandReceived;
             await _commands.AddModulesAsync(Assembly.GetEntryAssembly(), services);
         }
@@ -29,7 +31,7 @@ namespace DCAF.DiscordBot.Commands
                 return;
 
             var context = new SocketCommandContext(_client, message);
-            await _commands.ExecuteAsync(context, argPos, null);
+            await _commands.ExecuteAsync(context, argPos, _services);
         }
 
         public CommandHandler(DiscordSocketClient client, CommandService commands)

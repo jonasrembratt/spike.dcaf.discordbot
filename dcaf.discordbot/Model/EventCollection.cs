@@ -3,8 +3,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using DCAF.DiscordBot._lib;
 using DCAF.DiscordBot.CsvParsing;
+using TetraPak.XP;
 
 namespace DCAF.DiscordBot.Model
 {

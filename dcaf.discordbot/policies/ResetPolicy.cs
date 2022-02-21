@@ -3,21 +3,21 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using DCAF.DiscordBot._lib;
+using TetraPak.XP;
 using TetraPak.XP.Logging;
 
 namespace DCAF.DiscordBot.Policies
 {
-    public class ResetPolicy : Policy
+    public class ResetPolicy : Policy<PolicyResult>
     {
         const string IdentAll = "all";
         
-        public override async Task<Outcome> ExecuteAsync(PolicyArgs e)
+        public async Task<Outcome<PolicyResult>> ExecuteAsync(PolicyArgs e)
         {
             var args = e.Parameters;
             var policyName = args.Any() ? args[0] : IdentAll;
             var tasks = new List<Task<Outcome>>();
-            Policy[] policies;
+            IPolicy[] policies;
             if (policyName == IdentAll)
             {
                 policies = Dispatcher.GetPolicies();
@@ -27,7 +27,7 @@ namespace DCAF.DiscordBot.Policies
                 policies = new[] { selectedPolicy };
             }
             else
-                return Outcome.Fail(new ArgumentOutOfRangeException($"Unknown policy: {policyName}"));
+                return Outcome<PolicyResult>.Fail(new ArgumentOutOfRangeException($"Unknown policy: {policyName}"));
 
 
             // var policies = Dispatcher.GetPolicies();
@@ -42,7 +42,7 @@ namespace DCAF.DiscordBot.Policies
             await Task.WhenAll(tasks);
             var failed = tasks.Where(t => !t.Result).ToArray();
             if (!failed.Any())
-                return Outcome.Success("All policies was reset");
+                return Outcome<PolicyResult>.Success(new PolicyResult("All policies was reset"));
             
             var sb = new StringBuilder();
             sb.AppendLine("One or more policy failed to reset:");
@@ -50,7 +50,7 @@ namespace DCAF.DiscordBot.Policies
             {
                 sb.AppendLine(task.Result.Message);
             }
-            return Outcome.Fail(new Exception(sb.ToString()));
+            return Outcome<PolicyResult>.Fail(new Exception(sb.ToString()));
         }
 
         public override Task<Outcome> ResetCacheAsync()

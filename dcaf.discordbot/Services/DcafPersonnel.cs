@@ -3,11 +3,13 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Net;
 using System.Threading.Tasks;
-using DCAF.DiscordBot._lib;
 using dcaf.discordbot.Discord;
 using DCAF.DiscordBot.Google;
 using DCAF.DiscordBot.Model;
+using Google.Apis.Requests;
+using TetraPak.XP;
 
 namespace DCAF.DiscordBot.Services
 {
@@ -24,14 +26,27 @@ namespace DCAF.DiscordBot.Services
             [nameof(Member.Surname)] = 7,
             [nameof(Member.DiscordName)] = 8,
             [nameof(Member.Email)] = 9,
-            [nameof(Member.Status)] = 10,
+            [nameof(Member.Status)] = 11,
         };
         Dictionary<Member, int> _sheetRowNoIndex = new();
         Dictionary<string, Member> _idIndex = new();
         Dictionary<string, Member> _emailIndex = new();
         List<Member>? _members;
 
-        public async Task<Outcome<Member>> GetMemberWithId(string id)
+        public async Task<Outcome<IEnumerable<Member>>> GetAllMembers()
+        {
+            try
+            {
+                await _getMembersTcs.Task;
+                return Outcome<IEnumerable<Member>>.Success(_members?.Any() ?? false ? _members : Array.Empty<Member>());
+            }
+            catch (Exception ex)
+            {
+                return Outcome<IEnumerable<Member>>.Fail(ex);
+            }
+        }
+
+        public async Task<Outcome<Member>> GetMemberWithIdAsync(string id)
         {
             await _getMembersTcs.Task;
             return _idIndex.TryGetValue(id, out var member)
@@ -39,7 +54,7 @@ namespace DCAF.DiscordBot.Services
                 : Outcome<Member>.Fail(new Exception($"No member found with id '{id}'"));
         }
 
-        public async Task<Outcome<Member>> GetMemberWithEmail(string email)
+        public async Task<Outcome<Member>> GetMemberWithEmailAsync(string email)
         {
             await _getMembersTcs.Task;
             return _emailIndex.TryGetValue(email, out var member)
@@ -47,23 +62,35 @@ namespace DCAF.DiscordBot.Services
                 : Outcome<Member>.Fail(new Exception($"No member found with email {email}"));
         }
 
-        public Task<Outcome> Update(params Member[] members)
+        public Task<Outcome> UpdateAsync(params Member[] members)
         {
             return Task.Run(async () =>
             {
                 try
                 {
                     var countUpdated = 0; 
+                    TimeSpan delay  = TimeSpan.Zero;
                     for (var m = 0; m < members.Length; m++)
                     {
                         var member = members[m];
                         var updatedProps = member.GetUpdatedProperties();
                         for (var p = 0; p < updatedProps.Length; p++)
                         {
+                            if (delay != TimeSpan.Zero)
+                            {
+                                await Task.Delay(delay);
+                            }
                             var propertyName = updatedProps[p];
                             var (column, row) = getCell(member, propertyName);
                             var value = member[propertyName]?.ToString() ?? string.Empty;
                             var outcome = await _sheet.WriteCell(column, row, value);
+                            var retryBecauseRateLimit = isRateLimited(outcome, ref delay);
+                            while (retryBecauseRateLimit)
+                            {
+                                await Task.Delay(delay);
+                                outcome = await _sheet.WriteCell(column, row, value);
+                                retryBecauseRateLimit = isRateLimited(outcome, ref delay);
+                            }
                             countUpdated += outcome ? 1 : 0;
                             if (!outcome)
                             {
@@ -75,18 +102,33 @@ namespace DCAF.DiscordBot.Services
 
                     return Outcome.Success($"{countUpdated} users updated");
                 }
-                catch (Exception ex)
+                catch (Exception ex) 
                 {
                     return Outcome.Fail(ex);
                 }
             });
         }
 
+        static bool isRateLimited(Outcome outcome, ref TimeSpan delay)
+        {
+            if (outcome)
+                return false;
+
+            if (!outcome.TryGetGoogleApiError(out var obj) || obj is not RequestError requestError)
+                return false;
+
+            if (requestError.Code != (int)HttpStatusCode.TooManyRequests)
+                return false;
+
+            delay = delay.Add(TimeSpan.FromMilliseconds(50));
+            return true;
+        }
+
         public Task<Outcome> ResetAsync()
         {
             _getMembersTcs = new TaskCompletionSource<List<Member>>();
             getMembersAsync(true);
-            _getMembersTcs.AwaitResult();
+            TaskHelper.AwaitResult(_getMembersTcs);
             return Task.FromResult(Outcome.Success("Personnel cache was reloaded"));
         }
 
@@ -152,7 +194,7 @@ namespace DCAF.DiscordBot.Services
                         isReadingMembers = true;
                         list.Add(member);
                         sheetRowNoIndex.Add(member, rowNo);
-                        if (member.Id != Member.MissingId)
+                        if (member.IsIdentifiable)
                         {
                             idIndex.Add(member.Id, member);
                         }
@@ -171,20 +213,20 @@ namespace DCAF.DiscordBot.Services
             });
         }
 
-        static bool isMember(IList<object> row, [NotNullWhen(true)] out Member? member)
+        bool isMember(IList<object> row, [NotNullWhen(true)] out Member? member)
         {
             member = null;
             if (row.Count < 11)
                 return false;
             
-            var id = row.Count >= 14 ? (string) row[13] : Member.MissingId;
+            var id = row.Count >= 14 ? (string) row[_columnIndex[nameof(Member.Id)]] : Member.MissingId;
             if (string.IsNullOrWhiteSpace(id))
             {
                 id = Member.MissingId;
             }
-            var forename = (string) row[6];
-            var callsign = (string) row[3];
-            var surname = (string) row[7];
+            var forename = (string) row[_columnIndex[nameof(Member.Forename)]];
+            var callsign = (string) row[_columnIndex[nameof(Member.Callsign)]];
+            var surname = (string) row[_columnIndex[nameof(Member.Surname)]];
             if (forename == "Forename" && surname == "Surname")
                 return false;
 
@@ -193,9 +235,9 @@ namespace DCAF.DiscordBot.Services
                 string.IsNullOrWhiteSpace(callsign))
                 return false;
                         
-            var discordName = (string) row[8];
-            var email = (string) row[9];
-            var status = ((string)row[10]).TryParseMemberStatus(out var statusValue) 
+            var discordName = (string) row[_columnIndex[nameof(Member.DiscordName)]];
+            var email = (string) row[_columnIndex[nameof(Member.Email)]];
+            var status = ((string)row[_columnIndex[nameof(Member.Status)]]).TryParseMemberStatus(out var statusValue) 
                 ? statusValue!
                 : MemberStatus.Unknown;
 
@@ -225,13 +267,13 @@ namespace DCAF.DiscordBot.Services
 
         public IEnumerator<Member> GetEnumerator()
         {
-            _getMembersTcs.AwaitResult();
+            TaskHelper.AwaitResult(_getMembersTcs);
             return _members!.GetEnumerator();
         }
 
         IEnumerator IEnumerable.GetEnumerator()
         {
-            _getMembersTcs.AwaitResult();
+            TaskHelper.AwaitResult(_getMembersTcs);
             return _members!.GetEnumerator();
         }
         

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using DCAF.DiscordBot._lib;
 using DCAF.DiscordBot.Model;
+using TetraPak.XP;
 
 namespace DCAF.DiscordBot
 {
@@ -10,11 +11,13 @@ namespace DCAF.DiscordBot
     {
         event EventHandler Ready;
 
-        Task<Outcome<Member>> GetMemberWithId(string id);
+        Task<Outcome<IEnumerable<Member>>> GetAllMembers();
 
-        Task<Outcome<Member>> GetMemberWithEmail(string email);
+        Task<Outcome<Member>> GetMemberWithIdAsync(string id);
+
+        Task<Outcome<Member>> GetMemberWithEmailAsync(string email);
         
-        Task<Outcome> Update(params Member[] members);
+        Task<Outcome> UpdateAsync(params Member[] members);
 
         Task<Outcome> ResetAsync();
     }

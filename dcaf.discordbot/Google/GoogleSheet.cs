@@ -3,11 +3,12 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
-using DCAF.DiscordBot._lib;
+using Google;
 using Google.Apis.Auth.OAuth2;
 using Google.Apis.Services;
 using Google.Apis.Sheets.v4;
 using Google.Apis.Sheets.v4.Data;
+using TetraPak.XP;
 
 namespace DCAF.DiscordBot.Google
 {
@@ -70,10 +71,21 @@ namespace DCAF.DiscordBot.Google
             var update = Service.Spreadsheets.Values.Update(valueRange, DocumentId, range);
             update.ValueInputOption =
                 SpreadsheetsResource.ValuesResource.UpdateRequest.ValueInputOptionEnum.USERENTERED;
-            var response = await update.ExecuteAsync();
-            return response.UpdatedCells == 1 
-                ? Outcome.Success() 
-                : Outcome.Fail(new Exception($"Could not update sheet cell {range}"));
+            try
+            {
+                var response = await update.ExecuteAsync();
+                return response.UpdatedCells == 1
+                    ? Outcome.Success()
+                    : Outcome.Fail(new Exception($"Could not update sheet cell {range}"));
+            }
+            catch (GoogleApiException ex)
+            {
+                return Outcome.Fail(ex).WithGoogleApiError(ex.Error);
+            }
+            catch (Exception ex)
+            {
+                return Outcome.Fail(ex);
+            }
         }
 
         /// <summary>
@@ -118,6 +130,21 @@ namespace DCAF.DiscordBot.Google
         {
             _args = args ?? throw new ArgumentNullException(nameof(args));
             _credential = credential ?? throw new ArgumentNullException(nameof(credential));
+        }
+    }
+
+    public static class GoogleSheetHelper
+    {
+        const string KeyGoogleApiError = "__googleApiError";
+        
+        internal static Outcome WithGoogleApiError(this Outcome outcome, object error)
+        {
+            return outcome.WithValue(KeyGoogleApiError, error);
+        }
+
+        internal static bool TryGetGoogleApiError(this Outcome outcome, out object? error)
+        {
+            return outcome.TryGetValue(KeyGoogleApiError, out error);
         }
     }
 }

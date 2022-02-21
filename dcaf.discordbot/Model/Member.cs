@@ -2,10 +2,12 @@ using System;
 using dcaf.discordbot.Discord;
 using Newtonsoft.Json;
 using TetraPak.XP.DynamicEntities;
+using TetraPak.XP.Serialization;
 
 namespace DCAF.DiscordBot.Model
 {
     [JsonConverter(typeof(DynamicEntityJsonConverter<Member>))]
+    [JsonKeyFormat(KeyTransformationFormat.None)]
     public class Member : ModifiableEntity
     {
         public const string MissingId = "?";
@@ -15,6 +17,8 @@ namespace DCAF.DiscordBot.Model
             get => Get<string>()!; 
             set => Set(value);
         }
+        
+        public bool IsIdentifiable => Id != MissingId;
 
         public string Forename
         {

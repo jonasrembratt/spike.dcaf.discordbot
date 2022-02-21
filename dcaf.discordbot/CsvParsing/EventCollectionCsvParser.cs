@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Text;
 using DCAF.DiscordBot._lib;
 using DCAF.DiscordBot.Model;
+using TetraPak.XP;
 
 namespace DCAF.DiscordBot.CsvParsing
 {

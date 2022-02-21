@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Linq;
+using TetraPak.XP;
 
 namespace DCAF.DiscordBot._lib
 {
@@ -61,5 +62,9 @@ namespace DCAF.DiscordBot._lib
             value = null;
             return false;
         }
+        
+        public static bool TryGetFlag(this string[] args, params string[] keys) 
+            => 
+            args.Any(key => keys.Any(i => i == key));
     }
 }

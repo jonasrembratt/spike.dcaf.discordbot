@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using DCAF.DiscordBot._lib;
 using Discord.WebSocket;
+using TetraPak.XP;
 using TetraPak.XP.Configuration;
 
 namespace dcaf.discordbot.Discord

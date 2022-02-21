@@ -12,23 +12,39 @@ namespace DCAF.DiscordBot.Policies
 {
     public class PolicyDispatcher 
     {
-        readonly Dictionary<string, Policy> _policies = new();
+        readonly Dictionary<string, IPolicy> _policiesNameIndex = new();
+        readonly Dictionary<Type, IPolicy> _policiesTypeIndex = new();
         readonly CommandService _commandService;
 
         readonly DiscordService _discord;
 
-        public Policy[] GetPolicies() => _policies.Values.ToArray();
+        public IPolicy[] GetPolicies() => _policiesTypeIndex.Values.ToArray();
 
-        internal bool ContainsPolicy(string name) => _policies.ContainsKey(name);
+        internal bool ContainsPolicy(string name) => _policiesNameIndex.ContainsKey(name);
 
-        public bool TryGetPolicy(string name, [NotNullWhen(true)] out Policy? policy) => _policies.TryGetValue(name, out policy);
+        public bool TryGetPolicy(string name, [NotNullWhen(true)] out IPolicy? policy) 
+            => _policiesNameIndex.TryGetValue(name, out policy);
 
-        public void Add(Policy policy)
+
+        public bool TryGetPolicy<T>([NotNullWhen(true)] out T? policy) where T : IPolicy
         {
-            if (_policies.ContainsKey(policy.Name))
+            if (_policiesTypeIndex.TryGetValue(typeof(T), out var iPolicy) && iPolicy is T tPolicy)
+            {
+                policy = tPolicy;
+                return true;
+            }
+
+            policy = default;
+            return false;
+        }
+
+        public void Add(IPolicy policy)
+        {
+            if (_policiesNameIndex.ContainsKey(policy.Name) || _policiesTypeIndex.ContainsKey(policy.GetType()))
                 throw new ArgumentException($"Policy was already added: {policy}", nameof(policy));
             
-            _policies.Add(policy.Name, policy);
+            _policiesNameIndex.Add(policy.Name, policy);
+            _policiesTypeIndex.Add(policy.GetType(), policy);
         }
 
         public async Task InstallCommandsAsync()

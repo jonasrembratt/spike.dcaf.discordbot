@@ -12,6 +12,7 @@ using DCAF.DiscordBot.Policies;
 using Discord.Commands;
 using Discord.WebSocket;
 using Microsoft.Extensions.DependencyInjection;
+using TetraPak.XP;
 using TetraPak.XP.Configuration;
 using TetraPak.XP.DependencyInjection;
 using TetraPak.XP.Desktop;
@@ -140,7 +141,7 @@ namespace DCAF.DiscordBot.Services
             collection.AddSingleton<SynchronizePersonnelDiscordIdsPolicy>();
             collection.AddSingleton<ResetPolicy>();
             collection.AddSingleton<SetAwolPolicy>();
-            collection.AddSingleton<GetStuffPolicy>();
+            // collection.AddSingleton<GetStuffPolicy>();
             return collection;
         }
 
@@ -148,7 +149,7 @@ namespace DCAF.DiscordBot.Services
         {
             foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
             {
-                var policyTypes = assembly.GetTypes().Where(t => !t.IsAbstract && typeof(Policy).IsAssignableFrom(t));
+                var policyTypes = assembly.GetTypes().Where(t => !t.IsAbstract && t.IsImplementingInterface<IPolicy>());
                 foreach (var type in policyTypes)
                 {
                     provider.GetService(type);

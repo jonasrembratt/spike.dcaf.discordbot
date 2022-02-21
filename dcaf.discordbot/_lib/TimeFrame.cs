@@ -208,6 +208,8 @@ namespace DCAF.DiscordBot._lib
                         break;
                 }
             }
+
+            return list.ToArray();
             throw new NotSupportedException($"Unexpected difference when subtracting from time frame {self}");
         }
 
