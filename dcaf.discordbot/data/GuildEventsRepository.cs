@@ -13,7 +13,7 @@ using Discord;
 using TetraPak.XP;
 using TetraPak.XP.Configuration;
 using TetraPak.XP.Logging;
-using TetraPk.XP.Web.Http;
+using TetraPak.XP.Web.Http;
 
 namespace DCAF.DiscordBot
 {

@@ -9,7 +9,7 @@ using TetraPak.XP.Logging;
 
 namespace DCAF.DiscordBot.Policies
 {
-    public class SetAwolPolicy : Policy<SetAwolResult>
+    public class AwolPolicy : Policy<SetAwolResult>
     {
         readonly IPersonnel _personnel;
         readonly GuildEventsRepository _events;
@@ -26,7 +26,9 @@ namespace DCAF.DiscordBot.Policies
             if (!rsvpOutcome)
                 return Outcome<SetAwolResult>.Fail(allowedOutcome.Exception!);
 
-            var timeFrame = new TimeFrame(DateTime.UtcNow.Subtract(allowedOutcome.Value!), DateTime.UtcNow);
+            var timeFrame = new TimeFrame(
+                DateTime.UtcNow.Subtract(allowedOutcome.Value), 
+                DateTime.UtcNow.Subtract(rsvpOutcome.Value));
             var membersOutcome = await _personnel.GetAllMembers();
             if (!membersOutcome)
                 return Outcome<SetAwolResult>.Fail($"Failed when reading events. {membersOutcome.Message}");
@@ -66,7 +68,9 @@ namespace DCAF.DiscordBot.Policies
                         $"Failed when updating AWOL members in Sheet. {updateOutcome.Message}", 
                         updateOutcome.Exception!));
             
-            return Outcome<SetAwolResult>.Success(new SetAwolResult($"{awolMembers.Count} was set to 'AWOL'")
+            return Outcome<SetAwolResult>.Success(
+                new SetAwolResult(
+                    $"{awolMembers.Count} members hasn't responded to event invitations between {timeFrame} and was set to 'AWOL'")
             {
                 AwolMembers = awolMembers.ToArray()
             });
@@ -77,7 +81,7 @@ namespace DCAF.DiscordBot.Policies
             return Task.FromResult(Outcome.Fail(new Exception("!POLICY IS NOT IMPLEMENTED YET!")));
         }
 
-        public SetAwolPolicy(GuildEventsRepository events, IPersonnel personnel, PolicyDispatcher dispatcher, ILog? log)
+        public AwolPolicy(GuildEventsRepository events, IPersonnel personnel, PolicyDispatcher dispatcher, ILog? log)
         : base("awol", dispatcher, log)
         { 
             _events = events;
@@ -99,7 +103,9 @@ namespace DCAF.DiscordBot.Policies
         static readonly TimeSpan s_defaultRsvp = TimeSpan.FromDays(2);
 
         public string? Allowed { get; set; }
+        
         public string? Rsvp { get; set; }
+        
         public static SetAwolArgs Default => new() { Allowed = "30d", Rsvp = "48h" };
 
         internal Outcome<TimeSpan> GetAllowed()

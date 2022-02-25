@@ -10,27 +10,29 @@ using Discord.Commands;
 namespace DCAF.DiscordBot.Commands
 {
     [SuppressMessage("ReSharper", "UnusedMember.Global")]
+    // ReSharper disable once UnusedType.Global
     partial class DcafCommandGroup
     {
         [Group("personnel")]
+        // ReSharper disable once UnusedType.Global
         public class PersonnelModule : ModuleBase<SocketCommandContext>
         {
             readonly PolicyDispatcher _policyDispatcher;
 
             const string OutputListUnmatched = "list-unmatched";
 
-            [Command("set-awol")]
+            [Command("awol")]
             [Summary("Examines all personnel that hasn't responded to roll-calls and sets them as 'AWOL'")]
             public async Task ApplyAwol(
                 [Summary("(optional) Specifies a timespan (eg. '48h', '2w' or '30d') for allowed RSVP")]
                 SetAwolArgs? args = null)
             {
-                if (!_policyDispatcher.TryGetPolicy<SetAwolPolicy>(out var policy))
+                if (!_policyDispatcher.TryGetPolicy<AwolPolicy>(out var policy))
                 {
                     await ReplyAsync("Policy is unavailable");
                     return;
                 }
-
+                
                 args ??= SetAwolArgs.Default;
                 var allowedOutcome = args.GetAllowed();
                 if (!allowedOutcome)
@@ -61,7 +63,8 @@ namespace DCAF.DiscordBot.Commands
                 }
                 
                 var sb = new StringBuilder();
-                sb.AppendLine("These members have now been set as 'AWOL':");
+                sb.AppendLine(result.Message);
+                sb.AppendLine("--------");
                 foreach (var awolMember in result.AwolMembers)
                 {
                     sb.AppendLine(awolMember.ToString());
@@ -83,7 +86,7 @@ namespace DCAF.DiscordBot.Commands
             [Summary("Ensures members in the Google sheet Personnel sheet are assigned correct Discord IDs")]
             public async Task SyncIds()
             {
-                if (!_policyDispatcher.TryGetPolicy<SynchronizePersonnelDiscordIdsPolicy>(out var policy))
+                if (!_policyDispatcher.TryGetPolicy<SynchronizePersonnelIdsPolicy>(out var policy))
                 {
                     await ReplyAsync("Policy is unavailable");
                     return;
@@ -104,7 +107,8 @@ namespace DCAF.DiscordBot.Commands
                     return;
 
                 var sb = new StringBuilder();
-                sb.AppendLine("These members have discord names that needs to be updated in the Sheet:");
+                sb.AppendLine("These members have discord names in the Sheet that cannot be found in Discord:");
+                sb.AppendLine("--------");
                 foreach (var unmatchedMember in result.UnmatchedMembers)
                 {
                     sb.AppendLine(unmatchedMember.ToString());

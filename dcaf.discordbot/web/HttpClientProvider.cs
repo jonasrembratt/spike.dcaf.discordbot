@@ -3,7 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using TetraPak.XP;
 using TetraPak.XP.Auth.Abstractions;
-using TetraPk.XP.Web.Http;
+using TetraPak.XP.Web.Http;
 
 namespace dcaf.discordbot
 {

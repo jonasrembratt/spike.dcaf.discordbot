@@ -17,7 +17,7 @@ using TetraPak.XP.Configuration;
 using TetraPak.XP.DependencyInjection;
 using TetraPak.XP.Desktop;
 using TetraPak.XP.Logging;
-using TetraPk.XP.Web.Http;
+using TetraPak.XP.Web.Http;
 
 namespace DCAF.DiscordBot.Services
 {
@@ -138,9 +138,9 @@ namespace DCAF.DiscordBot.Services
             collection.AddSingleton(p => loadEventsOutcome.Value!);
             collection.AddSingleton<CommandService>();
             collection.AddSingleton<PolicyDispatcher>();
-            collection.AddSingleton<SynchronizePersonnelDiscordIdsPolicy>();
+            collection.AddSingleton<SynchronizePersonnelIdsPolicy>();
             collection.AddSingleton<ResetPolicy>();
-            collection.AddSingleton<SetAwolPolicy>();
+            collection.AddSingleton<AwolPolicy>();
             // collection.AddSingleton<GetStuffPolicy>();
             return collection;
         }

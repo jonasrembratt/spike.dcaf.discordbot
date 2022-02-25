@@ -1,19 +1,20 @@
 using System;
 using System.Diagnostics;
+using TetraPak.XP;
 
 namespace dcaf.discordbot.Discord
 {
     [DebuggerDisplay("{ToString()}")]
-    public class DiscordName
+    public class DiscordName : MultiStringValue
     {
-        readonly string _stringValue;
-        readonly int _hashCode;
+        // readonly string _stringValue; obsolete
+        // readonly int _hashCode;
 
-        public string? Discriminator { get; }
+        public string? Discriminator { get; private set; }
 
-        public string Name { get; }
+        public string Name { get; private set; }
 
-        public override string ToString() => _stringValue;
+        // public override string ToString() => _stringValue; obsolete
 
         protected bool Equals(DiscordName other) 
             =>
@@ -27,7 +28,7 @@ namespace dcaf.discordbot.Discord
             return obj.GetType() == GetType() && Equals((DiscordName)obj);
         }
 
-        public override int GetHashCode() => _hashCode;
+        // public override int GetHashCode() => _hashCode; obsolete
 
         public static bool operator ==(DiscordName? left, DiscordName? right)
         {
@@ -41,8 +42,9 @@ namespace dcaf.discordbot.Discord
 
         int getHashCode()
         {
-            if (_hashCode != 0)
-                return _hashCode;
+            var code = base.GetHashCode();
+            if (code != 0)
+                return code;
                 
             var hashCode = new HashCode();
             hashCode.Add(Name, StringComparer.InvariantCultureIgnoreCase);
@@ -53,17 +55,19 @@ namespace dcaf.discordbot.Discord
             return hashCode.ToHashCode();
         }
 
-        public DiscordName(string name)
+        protected override StringValueParseResult OnParse(string? stringValue)
         {
-            _stringValue = name;
-            var split = name.Split('#', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+            if (string.IsNullOrWhiteSpace(stringValue))
+                throw new ArgumentException("Discord name cannot be null/empty", nameof(stringValue));
+                
+            var split = stringValue.Split('#', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
             switch (split.Length)
             {
                 case 0:
-                    throw new FormatException($"Invalid Discord name: {name}");
+                    throw new FormatException($"Invalid Discord name: {stringValue}");
                 
                 case 1:
-                    Name = name.Trim();
+                    Name = stringValue.Trim();
                     break;
                 
                 default:
@@ -71,15 +75,37 @@ namespace dcaf.discordbot.Discord
                     Discriminator = split[1].Trim();
                     break;
             }
-            _hashCode = getHashCode();
+
+            return new StringValueParseResult(stringValue, getHashCode());
+        }
+
+        public DiscordName(string name) : base(name, "#")
+        {
+            // _stringValue = name; obsolete
+            // var split = name.Split('#', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+            // switch (split.Length)
+            // {
+            //     case 0:
+            //         throw new FormatException($"Invalid Discord name: {name}");
+            //     
+            //     case 1:
+            //         Name = name.Trim();
+            //         break;
+            //     
+            //     default:
+            //         Name = split[0].Trim();
+            //         Discriminator = split[1].Trim();
+            //         break;
+            // }
+            // _hashCode = getHashCode();
         }
         
-        public DiscordName(string name, string discriminator)
+        public DiscordName(string name, string discriminator) : base($"{name}#{discriminator}")
         {
-            _stringValue = $"{name} #{discriminator}";
-            Name = name;
-            Discriminator = discriminator;
-            _hashCode = getHashCode();
+            // _stringValue = $"{name} #{discriminator}"; obsolete
+            // Name = name;
+            // Discriminator = discriminator;
+            // _hashCode = getHashCode();
         }
     }
 }

@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using DCAF.DiscordBot._lib;
 using Discord.WebSocket;
 using TetraPak.XP;
 using TetraPak.XP.Configuration;
@@ -31,17 +30,35 @@ namespace dcaf.discordbot.Discord
             return _socketGuild = client.GetGuild(GuildId) ?? throw new ArgumentOutOfRangeException($"Guild not found: {GuildId}");
         }
 
-        public async Task<Outcome<SocketGuildUser>> GetUserWithNameAsync(DiscordName discordName)
+        public async Task<Outcome<SocketGuildUser>> GetUserWithDiscordNameAsync(DiscordName discordName)
         {
             var outcome = await getUsersAsync();
             if (!outcome)
                 return Outcome<SocketGuildUser>.Fail(
-                    new ArgumentOutOfRangeException($"Cound not find discord user {discordName}. {outcome.Exception!.Message}"));
+                    new ArgumentOutOfRangeException($"Cound not find discord user {discordName}. {outcome.Message}"));
 
             return _discordNameIndex!.TryGetValue(discordName, out var user)
                 ? Outcome<SocketGuildUser>.Success(user) 
                 : Outcome<SocketGuildUser>.Fail( 
                     new ArgumentOutOfRangeException($"Could not find discord user {discordName}"));
+        }
+
+        public async Task<Outcome<SocketGuildUser[]>> GetUserWithNicknameAsync(string forename, string? surname)
+        {
+            var outcome = await getUsersAsync();
+            if (!outcome)
+                return Outcome<SocketGuildUser[]>.Fail(
+                    new ArgumentOutOfRangeException($"Cound not find discord user '{forename} {surname}'. {outcome.Message}"));
+
+            var allUsers = outcome.Value!.Where(u => u.Nickname is { }).ToArray();
+            
+            
+            var users = allUsers.Where(u =>
+                u.Username.Equals($"{forename} {surname}", StringComparison.InvariantCultureIgnoreCase)).ToArray();
+            
+            return users.Any() 
+                ? Outcome<SocketGuildUser[]>.Success(users) 
+                : Outcome<SocketGuildUser[]>.Fail(new ArgumentOutOfRangeException($"No users found"));
         }
 
         public async Task<Outcome<SocketGuildUser>> GetUserAsync(ulong id)

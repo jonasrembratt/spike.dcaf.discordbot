@@ -32,8 +32,8 @@ namespace dcaf.discordbot
         {
             var config = new DiscordSocketConfig
             {
-                GatewayIntents = GatewayIntents.All
-            };
+                GatewayIntents = GatewayIntents.All,
+             };
             var cts = new CancellationTokenSource();
             s_client = new DiscordSocketClient(config);
             s_client.Log += onLog;
@@ -84,7 +84,7 @@ namespace dcaf.discordbot
                     throw new ConfigurationException(
                         $"CLI is enabled but no {nameof(DcafConfiguration.BotName)} was specified in configuration");
                         
-                var botOutcome = await guild.GetUserWithNameAsync(botName);    
+                var botOutcome = await guild.GetUserWithDiscordNameAsync(botName);    
                 if (!botOutcome)
                     throw new ConfigurationException(
                         $"CLI is enabled but configured bot is not recognized for this server: {botName}");

@@ -1,14 +1,16 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using dcaf.discordbot.Discord;
 using DCAF.DiscordBot.Model;
+using Discord.WebSocket;
 using TetraPak.XP;
 using TetraPak.XP.Logging;
 
 namespace DCAF.DiscordBot.Policies
 {
-    public class SynchronizePersonnelDiscordIdsPolicy : Policy<SyncIdsResult>
+    public class SynchronizePersonnelIdsPolicy : Policy<SyncIdsResult>
     {
         public const string PolicyName = "Synchronize Personnel Discord IDs";
         
@@ -20,14 +22,17 @@ namespace DCAF.DiscordBot.Policies
             // todo Add logging
             var membersWithNoId = _personnel.Where(i => i.Id == Member.MissingId).ToArray();
             var updatedMembers = new List<Member>();
-            var unmatched = new List<Member>();
+            var unmatchedMembers = new List<UnmatchedMember>();
             foreach (var member in membersWithNoId)
             {
                 var outcome = await tryGetMemberDiscordIdAsync(member);
                 if (!outcome)
                 {
+                    var potentialOutcome = await tryGetPotentialUsers(member);
                     Log.Warning($"{this} cannot resolve member '{member}'");
-                    unmatched.Add(member);
+                    unmatchedMembers.Add(potentialOutcome
+                        ? new UnmatchedMember(member, potentialOutcome.Value!.PotentialDiscordUsers)
+                        : new UnmatchedMember(member, Array.Empty<SocketGuildUser>()));
                     continue;
                 }
 
@@ -39,7 +44,7 @@ namespace DCAF.DiscordBot.Policies
             if (!updateOutcome)
                 return Outcome<SyncIdsResult>.Fail(updateOutcome.Exception!);
 
-            return Outcome<SyncIdsResult>.Success(new SyncIdsResult(unmatched, updatedMembers));
+            return Outcome<SyncIdsResult>.Success(new SyncIdsResult(unmatchedMembers, updatedMembers));
         }
 
         public override async Task<Outcome> ResetCacheAsync()
@@ -63,13 +68,21 @@ namespace DCAF.DiscordBot.Policies
 
         async Task<Outcome<ulong>> tryGetMemberDiscordIdAsync(Member member)
         {
-            var outcome = await _discordGuild.GetUserWithNameAsync(member.DiscordName);
+            var outcome = await _discordGuild.GetUserWithDiscordNameAsync(member.DiscordName);
             return outcome
                 ? Outcome<ulong>.Success(outcome.Value!.Id)
                 : Outcome<ulong>.Fail(outcome.Exception!);
         }
+        
+        async Task<Outcome<UnmatchedMember>> tryGetPotentialUsers(Member member)
+        {
+            var outcome = await _discordGuild.GetUserWithNicknameAsync(member.Forename, member.Surname);
+            return outcome
+                ? Outcome<UnmatchedMember>.Success(new UnmatchedMember(member, outcome.Value!))
+                : Outcome<UnmatchedMember>.Fail(outcome.Exception!);
+        }
 
-        public SynchronizePersonnelDiscordIdsPolicy(
+        public SynchronizePersonnelIdsPolicy(
             IPersonnel personnel, 
             IDiscordGuild discordGuild,
             PolicyDispatcher dispatcher,
@@ -83,14 +96,29 @@ namespace DCAF.DiscordBot.Policies
     
     public class SyncIdsResult : PolicyResult
     {
-        public Member[] UnmatchedMembers { get;  }
+        public UnmatchedMember[] UnmatchedMembers { get;  }
 
         public Member[] UpdatedMembers { get; set; }
 
-        public SyncIdsResult(List<Member> unmatched, List<Member> updated)
+        public SyncIdsResult(List<UnmatchedMember> unmatched, List<Member> updated)
         {
             UnmatchedMembers = unmatched.ToArray();
             UpdatedMembers = updated.ToArray();
+        }
+    }
+
+    public class UnmatchedMember
+    {
+        public Member Member { get; }
+
+        public SocketGuildUser[] PotentialDiscordUsers { get; }
+
+        public bool HasPotentialMatches => PotentialDiscordUsers.Any();
+
+        public UnmatchedMember(Member member, SocketGuildUser[] potentialDiscordUsers)
+        {
+            Member = member;
+            PotentialDiscordUsers = potentialDiscordUsers;
         }
     }
 }
