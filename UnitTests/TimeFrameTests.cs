@@ -1,5 +1,5 @@
 using System;
-using DCAF.DiscordBot._lib;
+using DCAF._lib;
 using Xunit;
 
 namespace UnitTests

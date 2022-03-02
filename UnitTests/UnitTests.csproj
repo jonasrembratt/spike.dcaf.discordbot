@@ -24,6 +24,7 @@
     </ItemGroup>
 
     <ItemGroup>
+      <ProjectReference Include="..\DCAF.Common\DCAF.Common.csproj" />
       <ProjectReference Include="..\dcaf.discordbot\dcaf.discordbot.csproj" />
     </ItemGroup>
 
