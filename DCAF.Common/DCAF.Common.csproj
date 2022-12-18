@@ -8,18 +8,9 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <Folder Include="configuration" />
-      <Folder Include="Discord" />
-    </ItemGroup>
-
-    <ItemGroup>
       <PackageReference Include="Google.Apis.Sheets.v4" Version="1.57.0.2826" />
-    </ItemGroup>
-
-    <ItemGroup>
-      <ProjectReference Include="..\..\..\..\APIs_to_the_world\_nuget\TetraPak.XP\source\TetraPak.XP.Common\TetraPak.XP.Common.csproj" />
-      <ProjectReference Include="..\..\..\..\APIs_to_the_world\_nuget\TetraPak.XP\source\TetraPak.XP.DynamicEntities\TetraPak.XP.DynamicEntities.csproj" />
-      <ProjectReference Include="..\..\..\..\APIs_to_the_world\_nuget\TetraPak.XP\source\TetraPak.XP.Logging\TetraPak.XP.Logging.csproj" />
+      <PackageReference Include="TetraPak.XP.DynamicEntities" Version="1.0.0-beta.3" />
+      <PackageReference Include="TetraPak.XP.Logging" Version="1.0.0-beta.3" />
     </ItemGroup>
 
 </Project>

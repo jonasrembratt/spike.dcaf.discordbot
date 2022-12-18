@@ -8,11 +8,10 @@
 
     <ItemGroup>
       <PackageReference Include="Discord.Net" Version="3.8.1" />
+      <PackageReference Include="TetraPak.XP.Web.Http" Version="1.0.0-beta.3" />
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\..\..\..\APIs_to_the_world\_nuget\TetraPak.XP\source\TetraPak.XP.Configuration\TetraPak.XP.Configuration.csproj" />
-      <ProjectReference Include="..\..\..\..\APIs_to_the_world\_nuget\TetraPak.XP\source\TetraPak.XP.Web.Http\TetraPak.XP.Web.Http.csproj" />
       <ProjectReference Include="..\DCAF.Common\DCAF.Common.csproj" />
     </ItemGroup>
 

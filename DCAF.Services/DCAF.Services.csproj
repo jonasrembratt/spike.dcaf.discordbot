@@ -7,7 +7,6 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\..\..\..\APIs_to_the_world\_nuget\TetraPak.XP\source\TetraPak.XP.Scripting\TetraPak.XP.Scripting.csproj" />
       <ProjectReference Include="..\DCAF.Common\DCAF.Common.csproj" />
       <ProjectReference Include="..\DCAF.Discord\DCAF.Discord.csproj" />
     </ItemGroup>
