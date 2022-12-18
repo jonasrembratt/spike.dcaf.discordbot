@@ -5,53 +5,66 @@ using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
+using DCAF._lib;
 using DCAF.Discord;
 using DCAF.Google;
 using DCAF.Model;
 using Google.Apis.Requests;
 using TetraPak.XP;
+using TetraPak.XP.Logging.Abstractions;
 
 namespace DCAF.Services
 {
-    public class DcafPersonnel : IPersonnel<DiscordMember>
+    public sealed class DcafPersonnel : IPersonnel<DiscordMember>
     {
         TaskCompletionSource<List<DiscordMember>> _getMembersTcs = new();
         DateTime _lastReadMembers = DateTime.MinValue;
         readonly GooglePersonnelSheet _sheet;
         readonly Dictionary<string, int> _columnIndex = new()
         {
-            [nameof(Member.Id)] = 13,
-            [nameof(Member.Forename)] = 6,
-            [nameof(Member.Callsign)] = 3,
-            [nameof(Member.Surname)] = 7,
-            [nameof(DiscordMember.DiscordName)] = 8,
-            [nameof(Member.Email)] = 9,
-            [nameof(Member.Status)] = 11,
+            [nameof(Member.DateOfApplication)] = 0,
+            [nameof(Member.Callsign)] = 4,
+            [nameof(Member.Grade)] = 5,
+            [nameof(Member.Forename)] = 7,
+            [nameof(Member.Surname)] = 8,
+            [nameof(DiscordMember.DiscordName)] = 9,
+            [nameof(Member.Email)] = 10,
+            [nameof(Member.Status)] = 12,
+            [nameof(Member.Id)] = 14,
         };
         Dictionary<DiscordMember, int> _sheetRowNoIndex = new();
         Dictionary<string, DiscordMember> _idIndex = new();
         Dictionary<string, DiscordMember> _emailIndex = new();
         List<DiscordMember>? _members;
 
-        public async Task<Outcome<IEnumerable<DiscordMember>>> GetAllMembers()
+        ILog? Log => _sheet.Log;
+
+        public async Task<EnumOutcome<DiscordMember>> GetAllMembers()
         {
             try
             {
                 await _getMembersTcs.Task;
-                return Outcome<IEnumerable<DiscordMember>>.Success(_members?.Any() ?? false ? _members : Array.Empty<DiscordMember>());
+                return EnumOutcome<DiscordMember>.Success(_members?.Any() ?? false ? _members : Array.Empty<DiscordMember>());
             }
             catch (Exception ex)
             {
-                return Outcome<IEnumerable<DiscordMember>>.Fail(ex);
+                return EnumOutcome<DiscordMember>.Fail(ex);
             }
         }
 
         public async Task<Outcome<DiscordMember>> GetMemberWithIdAsync(string id)
         {
-            await _getMembersTcs.Task;
-            return _idIndex.TryGetValue(id, out var member)
-                ? Outcome<DiscordMember>.Success(member)
-                : Outcome<DiscordMember>.Fail(new Exception($"No member found with id '{id}'"));
+            try
+            {
+                await _getMembersTcs.Task;
+                return _idIndex.TryGetValue(id, out var member)
+                    ? Outcome<DiscordMember>.Success(member)
+                    : Outcome<DiscordMember>.Fail(new Exception($"No member found with id '{id}'"));
+            }
+            catch (Exception ex)
+            {
+                return Outcome<DiscordMember>.Fail(ex);
+            }
         }
 
         public async Task<Outcome<DiscordMember>> GetMemberWithEmailAsync(string email)
@@ -124,32 +137,37 @@ namespace DCAF.Services
             return true;
         }
 
-        public Task<Outcome> ResetAsync()
+        public async Task<Outcome> ResetAsync()
         {
             _getMembersTcs = new TaskCompletionSource<List<DiscordMember>>();
             getMembersAsync(true);
-            _getMembersTcs.AwaitResult();
-            return Task.FromResult(Outcome.Success("Personnel cache was reloaded"));
+            var outcome = await _getMembersTcs.GetOutcomeAsync();
+            return outcome ? Outcome.Success("Personnel cache was reloaded") : outcome;
         }
 
         public event EventHandler? Ready;
 
         void getMembersAsync(bool reload)
         {
-            if (_members is { } && !reload || DateTime.Now.Subtract(_lastReadMembers) < TimeSpan.FromSeconds(20))
+            if (_members is { } && !reload || XpDateTime.Now.Subtract(_lastReadMembers) < TimeSpan.FromSeconds(20))
             {
                 Console.WriteLine($"### DCAF Personnel sheet won't reset (was last reset: {_lastReadMembers:u})"); // nisse
                 _getMembersTcs.SetResult(_members!);
                 return;
-            }
+            }                                                      
 
             // read/reload members ...
             Task.Run(async () =>
             {
                 var outcome = await _sheet.ReadValuesAsync(new SheetColumns("A", "Z"));
                 if (!outcome)
-                    throw new Exception(
-                        "Could not load DCAF members from google sheet (see inner exception)", outcome.Exception!);
+                {
+                    _getMembersTcs.SetException(
+                        new Exception(
+                            "Could not load DCAF members from google sheet (see inner exception)", 
+                            outcome.Exception!));
+                    return;
+                }
 
                 var values = outcome.Value!.Values;
                 var isReadingMembers = false;
@@ -162,6 +180,7 @@ namespace DCAF.Services
                     catch (Exception ex)
                     {
                         _getMembersTcs.SetException(ex);
+                        Log.Error(ex);
                         Ready?.Invoke(this, EventArgs.Empty);
                         return;
                     }
@@ -196,18 +215,29 @@ namespace DCAF.Services
                         sheetRowNoIndex.Add(member, rowNo);
                         if (member.IsIdentifiable)
                         {
-                            idIndex.Add(member.Id, member);
+                            if (idIndex.ContainsKey(member.Id))
+                            {
+                                Log.Warning($"Personnel id {member.Id} already exists; Discord name='{member.DiscordName}'");
+                            }
                         }
-                        if (!string.IsNullOrWhiteSpace(member.Email))
+                        if (!string.IsNullOrWhiteSpace(member.Email) && member.Email.Contains('@'))
                         {
-                            emailIndex.Add(member.Email, member);
+                            try
+                            {
+                                emailIndex.Add(member.Email, member);
+                            }
+                            catch (Exception ex)
+                            { // nisse
+                                Console.WriteLine(ex);
+                                throw;
+                            }
                         }
                     }
 
                     _sheetRowNoIndex = sheetRowNoIndex;
                     _idIndex = idIndex;
                     _emailIndex = emailIndex;
-                    _lastReadMembers = DateTime.Now;
+                    _lastReadMembers = XpDateTime.Now;
                     return list;
                 }
             });
@@ -224,6 +254,8 @@ namespace DCAF.Services
             {
                 id = Member.MissingId;
             }
+            var doaString = (string) row[_columnIndex[nameof(Member.DateOfApplication)]];
+            var doa = doaString.TryParseGoogleDateTime(out var dateTime) ? dateTime : XpDateTime.Now;
             var forename = (string) row[_columnIndex[nameof(Member.Forename)]];
             var callsign = (string) row[_columnIndex[nameof(Member.Callsign)]];
             var surname = (string) row[_columnIndex[nameof(Member.Surname)]];
@@ -237,11 +269,18 @@ namespace DCAF.Services
                         
             var discordName = (string) row[_columnIndex[nameof(DiscordMember.DiscordName)]];
             var email = (string) row[_columnIndex[nameof(Member.Email)]];
-            var status = ((string)row[_columnIndex[nameof(Member.Status)]]).TryParseMemberStatus(out var statusValue) 
-                ? statusValue!
+            var status = ((string)row[_columnIndex[nameof(Member.Status)]]).TryParseMemberStatus(out var memberStatus) 
+                ? memberStatus!
                 : MemberStatus.Unknown;
+            var grade = ((string)row[_columnIndex[nameof(Member.Grade)]]).TryParseMemberGrade(out var memberGrade) 
+                ? memberGrade
+                : MemberGrade.Unknown;
 
-            member = new DiscordMember(id, forename, surname, status.Value)
+            member = new DiscordMember(id, 
+                doa,
+                forename, surname, 
+                grade, 
+                status.Value)
             {
                 Callsign = callsign,
                 Email = email,
@@ -267,16 +306,16 @@ namespace DCAF.Services
 
         public IEnumerator<DiscordMember> GetEnumerator()
         {
-            _getMembersTcs.AwaitResult();
-            return _members!.GetEnumerator();
+            var outcome = _getMembersTcs.GetOutcome();
+            if (outcome)
+                return _members!.GetEnumerator();
+
+            Log.Warning($"Failed to get an enumerator for {this} (check for previous errors in log)");
+            return new List<DiscordMember>().GetEnumerator();
         }
 
-        IEnumerator IEnumerable.GetEnumerator()
-        {
-            _getMembersTcs.AwaitResult();
-            return _members!.GetEnumerator();
-        }
-        
+        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+
         public DcafPersonnel(GooglePersonnelSheet sheet)
         {
             _sheet = sheet;

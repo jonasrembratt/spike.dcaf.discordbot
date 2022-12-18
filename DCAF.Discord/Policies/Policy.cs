@@ -3,22 +3,26 @@ using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using DCAF._lib;
+using Microsoft.Extensions.Configuration;
 using TetraPak.XP;
-using TetraPak.XP.Logging;
+using TetraPak.XP.Configuration;
+using TetraPak.XP.Logging.Abstractions;
 
 namespace DCAF.Discord.Policies
 {
     [DebuggerDisplay("{ToString()}")]
-    public abstract class Policy<T> : IPolicy  where T : PolicyResult 
+    public abstract class Policy : IPolicy 
     {
+        // const string ConfigSectionKey = "Policies"; obsolete
+        
         public PolicyDispatcher Dispatcher { get; }
 
         public ILog? Log { get; }
 
         public string Name { get; }
-        
-        // public abstract Task<Outcome<T>> ExecuteAsync(PolicyArgs args);
 
+        public abstract Task<Outcome> ExecuteAsync(IConfiguration? config);
+        
         public abstract Task<Outcome> ResetCacheAsync();
 
         public override string ToString() => $"{base.ToString()} ({Name})";
@@ -37,6 +41,8 @@ namespace DCAF.Discord.Policies
     {
         string Name { get; }
 
+        Task<Outcome> ExecuteAsync(IConfiguration? config);
+        
         Task<Outcome> ResetCacheAsync();
     }
 
@@ -55,29 +61,5 @@ namespace DCAF.Discord.Policies
             Parameters.TryGetFlag(keys);
 
         public CancellationToken CancellationToken { get; set; } = CancellationToken.None;
-
-        public PolicyArgs WithParameters(params string[] parameters)
-        {
-            Parameters = parameters;
-            return this;
-        }
-
-        public static PolicyArgs FromCli(string[] parameters)
-        {
-            return new PolicyArgs(parameters)
-            {
-                IsCliMessage = true,
-            };
-        }
-
-        public static PolicyArgs FromCommand(string[] parameters)
-        {
-            return new PolicyArgs(parameters)
-            {
-                IsCliMessage = true,
-            };
-        }
-
-        PolicyArgs(params string[] parameters) => WithParameters(parameters);
     }
 }

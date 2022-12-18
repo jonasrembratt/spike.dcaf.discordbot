@@ -1,28 +1,27 @@
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Discord.WebSocket;
-using TetraPak.XP;
 
 namespace DCAF.Discord
 {
-    public class DiscordService 
+    // ReSharper disable once ClassNeverInstantiated.Global
+    public class DiscordService // injected service
     {
         readonly CancellationTokenSource _cts;
         readonly DiscordSocketClient _client;
-        readonly TaskCompletionSource<bool> _clientReadyTcs = new();
+        readonly TaskCompletionSource<bool> _clientStateTcs;
 
         public async Task<DiscordSocketClient> GetReadyClientAsync()
         {
-            await _clientReadyTcs.Task;
+            await _clientStateTcs.Task;
             return _client;
         }
 
-        public void SetReady()
+        public async Task WhenReadyAsync(Action handler)
         {
-            if (!_clientReadyTcs.IsFinished())
-            {
-                _clientReadyTcs.SetResult(true);
-            }
+            await _clientStateTcs.Task;
+            handler.Invoke();
         }
 
         public void Exit()
@@ -33,10 +32,13 @@ namespace DCAF.Discord
             }
         }
         
-        public DiscordService(DiscordSocketClient client, CancellationTokenSource cts)
+        public DiscordService(DiscordSocketClient client, CancellationTokenSource cts, TaskCompletionSource<bool> clientStateTcs)
         {
-            _cts = cts;
             _client = client;
+            _cts = cts;
+            _clientStateTcs = clientStateTcs;
+            
         }
+
     }
 }

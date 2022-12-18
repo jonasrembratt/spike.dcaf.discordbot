@@ -1,5 +1,6 @@
 using System;
 using DCAF._lib;
+using TetraPak.XP;
 using Xunit;
 
 namespace UnitTests

@@ -10,7 +10,7 @@ namespace DCAF.Discord
 {
     public class DiscordGuild : IDiscordGuild
     {
-        TaskCompletionSource<Outcome<SocketGuildUser[]>?> _loadUsersTcs = new();
+        TaskCompletionSource<Outcome<SocketGuildUser[]>> _loadUsersTcs = new();
         Outcome<SocketGuildUser[]>? _usersOutcome;
         Dictionary<DiscordName, SocketGuildUser>? _discordNameIndex;
         Dictionary<ulong, SocketGuildUser>? _userIdIndex;
@@ -34,13 +34,24 @@ namespace DCAF.Discord
         {
             var outcome = await getUsersAsync();
             if (!outcome)
-                return Outcome<SocketGuildUser>.Fail(
-                    new ArgumentOutOfRangeException($"Cound not find discord user {discordName}. {outcome.Message}"));
+                return fail();
 
-            return _discordNameIndex!.TryGetValue(discordName, out var user)
-                ? Outcome<SocketGuildUser>.Success(user) 
-                : Outcome<SocketGuildUser>.Fail( 
-                    new ArgumentOutOfRangeException($"Could not find discord user {discordName}"));
+            if (_discordNameIndex!.TryGetValue(discordName, out var user))
+                return Outcome<SocketGuildUser>.Success(user);
+
+            if (discordName.Discriminator.IsAssigned())
+                return fail();
+            
+            // seems the user hasn't provided the discriminator element of his/her Discord name; try looking for a user that shares the name element only ...
+            var usersWithNameElement = outcome.Value!.Where(u => u.Username == discordName.Name).ToArray();
+            if (usersWithNameElement.Length != 1)
+                return fail();
+            
+            user = usersWithNameElement.First();
+            return Outcome<SocketGuildUser>.Success(user);
+
+            Outcome<SocketGuildUser> fail() => Outcome<SocketGuildUser>.Fail(
+                new ArgumentOutOfRangeException($"Could not find discord user {discordName}"));
         }
 
         public async Task<Outcome<SocketGuildUser[]>> GetUserWithNicknameAsync(string forename, string? surname)
@@ -51,8 +62,6 @@ namespace DCAF.Discord
                     new ArgumentOutOfRangeException($"Cound not find discord user '{forename} {surname}'. {outcome.Message}"));
 
             var allUsers = outcome.Value!.Where(u => u.Nickname is { }).ToArray();
-            
-            
             var users = allUsers.Where(u =>
                 u.Username.Equals($"{forename} {surname}", StringComparison.InvariantCultureIgnoreCase)).ToArray();
             
@@ -75,12 +84,12 @@ namespace DCAF.Discord
                     new ArgumentOutOfRangeException($"Could not find discord user with id {id.ToString()}"));
         }
 
-        public Task<Outcome> ResetAsync()
+        public async Task<Outcome> ResetAsync()
         {
-            _loadUsersTcs = new TaskCompletionSource<Outcome<SocketGuildUser[]>?>();
+            _loadUsersTcs = new TaskCompletionSource<Outcome<SocketGuildUser[]>>();
             loadUsersAsync(true);
-            _loadUsersTcs.AwaitResult();
-            return Task.FromResult(Outcome.Success());
+            var outcome = await _loadUsersTcs.GetOutcomeAsync();
+            return outcome;
         }
 
         void loadUsersAsync(bool reload)
@@ -92,13 +101,13 @@ namespace DCAF.Discord
 
                 if ((_discordNameIndex?.Any() ?? false) && !reload)
                 {
-                    _loadUsersTcs.SetResult(_usersOutcome);
+                    _loadUsersTcs.SetResult(_usersOutcome!);
                     return;
                 }
 
-                if (DateTime.Now.Subtract(_lastReadUsers) < TimeSpan.FromSeconds(20))
+                if (XpDateTime.Now.Subtract(_lastReadUsers) < TimeSpan.FromSeconds(20))
                 {
-                    _loadUsersTcs.SetResult(_usersOutcome);
+                    _loadUsersTcs.SetResult(_usersOutcome!);
                     return;
                 }
 
@@ -109,7 +118,7 @@ namespace DCAF.Discord
                     _discordNameIndex = users.ToDictionary(user => new DiscordName(user.Username, user.Discriminator));
                     _userIdIndex = users.ToDictionary(user => user.Id);
                     _loadUsersTcs.SetResult(_usersOutcome = Outcome<SocketGuildUser[]>.Success(users));
-                    _lastReadUsers = DateTime.Now;
+                    _lastReadUsers = XpDateTime.Now;
                 }
                 catch (Exception ex)
                 {
@@ -118,13 +127,13 @@ namespace DCAF.Discord
             });
         }
 
-        Task<Outcome<SocketGuildUser[]>> getUsersAsync()
+        async Task<Outcome<SocketGuildUser[]>> getUsersAsync()
         {
             if (_usersOutcome is { })
-                return Task.FromResult(_usersOutcome);
+                return _usersOutcome;
             
-            _loadUsersTcs.AwaitResult();
-            return Task.FromResult(_usersOutcome!);
+            _usersOutcome = await _loadUsersTcs.GetOutcomeAsync();
+            return _usersOutcome;
         }
 
         public DiscordGuild(DiscordService discord, DcafConfiguration dcafConfig)

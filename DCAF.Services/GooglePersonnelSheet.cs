@@ -2,12 +2,15 @@ using System.Threading.Tasks;
 using DCAF.Google;
 using Google.Apis.Sheets.v4.Data;
 using TetraPak.XP;
+using TetraPak.XP.Logging.Abstractions;
 
 namespace DCAF.Services
 {
-    public class GooglePersonnelSheet : IGoogleSheet
+    public sealed class GooglePersonnelSheet : IGoogleSheet
     {
         readonly IGoogleSheet _internal;
+
+        public ILog? Log { get; }
 
         public Task<Outcome<ValueRange>> ReadValuesAsync(SheetColumns columns, SheetRows? rows = null) 
             => _internal.ReadValuesAsync(columns, rows);
@@ -15,9 +18,10 @@ namespace DCAF.Services
         public Task<Outcome> WriteCell(string column, int row, string value) 
             => _internal.WriteCell(column, row, value);
 
-        internal GooglePersonnelSheet(IGoogleSheet sheet)
+        internal GooglePersonnelSheet(IGoogleSheet sheet, ILog? log)
         {
             _internal = sheet;
+            Log = log;
         }
     }
 }

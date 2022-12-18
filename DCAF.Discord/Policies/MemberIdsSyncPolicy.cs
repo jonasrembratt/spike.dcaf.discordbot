@@ -4,20 +4,25 @@ using System.Linq;
 using System.Threading.Tasks;
 using DCAF.Model;
 using Discord.WebSocket;
+using Microsoft.Extensions.Configuration;
 using TetraPak.XP;
-using TetraPak.XP.Logging;
+using TetraPak.XP.Logging.Abstractions;
 
 namespace DCAF.Discord.Policies
 {
-    public class SynchronizePersonnelIdsPolicy : Policy<SyncIdsResult>
+    // ReSharper disable once ClassNeverInstantiated.Global
+    public sealed class MemberSyncIdsPolicy : Policy
     {
-        public const string PolicyName = "Synchronize Personnel Discord IDs";
+        const string PolicyName = "member sync-ids";
         
         readonly IPersonnel<DiscordMember> _personnel;
         readonly IDiscordGuild _discordGuild;
-        
-        public async Task<Outcome<SyncIdsResult>> ExecuteAsync()
+
+        public override async Task<Outcome> ExecuteAsync(IConfiguration? config)
         {
+            if (DateTimeSource.Current is XpDateTime { TimeAcceleration: > 20 })
+                return Outcome.Fail("Ignores running the policy when time is accelerated more than 20 times");
+
             // todo Add logging
             var membersWithNoId = _personnel.Where(i => i.Id == Member.MissingId).ToArray();
             var updatedMembers = new List<DiscordMember>();
@@ -28,7 +33,7 @@ namespace DCAF.Discord.Policies
                 if (!outcome)
                 {
                     var potentialOutcome = await tryGetPotentialUsers(member);
-                    Log.Warning($"{this} cannot resolve member '{member}'");
+                    Log.Warning($"{this} cannot resolve member '{member.Forename} {member.Surname} (Discord name: '{member.DiscordName}')'");
                     unmatchedMembers.Add(potentialOutcome
                         ? new UnmatchedMember(member, potentialOutcome.Value!.PotentialDiscordUsers)
                         : new UnmatchedMember(member, Array.Empty<SocketGuildUser>()));
@@ -40,10 +45,9 @@ namespace DCAF.Discord.Policies
             }
 
             var updateOutcome = await _personnel.UpdateAsync(updatedMembers.ToArray());
-            if (!updateOutcome)
-                return Outcome<SyncIdsResult>.Fail(updateOutcome.Exception!);
-
-            return Outcome<SyncIdsResult>.Success(new SyncIdsResult(unmatchedMembers, updatedMembers));
+            return updateOutcome 
+                ? Outcome<SyncIdsResult>.Success(new SyncIdsResult(unmatchedMembers, updatedMembers)) 
+                : Outcome<SyncIdsResult>.Fail(updateOutcome.Exception!);
         }
 
         public override async Task<Outcome> ResetCacheAsync()
@@ -73,7 +77,7 @@ namespace DCAF.Discord.Policies
                 : Outcome<ulong>.Fail(outcome.Exception!);
         }
         
-        async Task<Outcome<UnmatchedMember>> tryGetPotentialUsers(Member member)
+        async Task<Outcome<UnmatchedMember>> tryGetPotentialUsers(DiscordMember member)
         {
             var outcome = await _discordGuild.GetUserWithNicknameAsync(member.Forename, member.Surname);
             return outcome
@@ -81,19 +85,19 @@ namespace DCAF.Discord.Policies
                 : Outcome<UnmatchedMember>.Fail(outcome.Exception!);
         }
 
-        public SynchronizePersonnelIdsPolicy(
+        public MemberSyncIdsPolicy(
             IPersonnel<DiscordMember> personnel, 
             IDiscordGuild discordGuild,
             PolicyDispatcher dispatcher,
             ILog? log)
         : base(PolicyName, dispatcher, log)
-        {
+            {
             _personnel = personnel;
             _discordGuild = discordGuild;
         }
     }
     
-    public class SyncIdsResult : PolicyResult
+    public sealed class SyncIdsResult : PolicyResult
     {
         public UnmatchedMember[] UnmatchedMembers { get;  }
 
@@ -106,17 +110,17 @@ namespace DCAF.Discord.Policies
         }
     }
 
-    public class UnmatchedMember
+    public sealed class UnmatchedMember
     {
-        public Member Member { get; }
+        public DiscordMember Member { get; }
 
-        public override string ToString() => Member.ToString();
+        public override string ToString() => $"{Member} ({Member.DiscordName})" ;
 
         public SocketGuildUser[] PotentialDiscordUsers { get; }
 
         public bool HasPotentialMatches => PotentialDiscordUsers.Any();
 
-        public UnmatchedMember(Member member, SocketGuildUser[] potentialDiscordUsers)
+        public UnmatchedMember(DiscordMember member, SocketGuildUser[] potentialDiscordUsers)
         {
             Member = member;
             PotentialDiscordUsers = potentialDiscordUsers;

@@ -1,6 +1,6 @@
 namespace DCAF.Google
 {
-    public class SheetRows
+    public sealed class SheetRows
     {
         public int First { get; set; }
 

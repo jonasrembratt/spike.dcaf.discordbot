@@ -11,7 +11,7 @@ using Discord.WebSocket;
 
 namespace DCAF.Discord.Policies
 {
-    public class PolicyDispatcher 
+    public sealed class PolicyDispatcher
     {
         readonly Dictionary<string, IPolicy> _policiesNameIndex = new();
         readonly Dictionary<Type, IPolicy> _policiesTypeIndex = new();
@@ -79,7 +79,7 @@ namespace DCAF.Discord.Policies
             await _commandService.ExecuteAsync(context, argPos, null);
         }
 
-        public PolicyDispatcher(DiscordService discord,  CommandService commandService)
+        public PolicyDispatcher(DiscordService discord, CommandService commandService)
         {
             _discord = discord;
             _commandService = commandService;

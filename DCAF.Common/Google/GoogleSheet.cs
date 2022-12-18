@@ -15,7 +15,7 @@ namespace DCAF.Google
     /// <summary>
     ///   Represents a single Google sheet.
     /// </summary>
-    public class GoogleSheet : IGoogleSheet
+    public sealed class GoogleSheet : IGoogleSheet
     {
         readonly object _syncRoot = new();
         static readonly string[] s_scopes = { SheetsService.Scope.Spreadsheets } ;
@@ -52,6 +52,7 @@ namespace DCAF.Google
             var request = Service.Spreadsheets.Values.Get(DocumentId, range);
             try
             {
+                
                 var valueRange = await request.ExecuteAsync();
                 return Outcome<ValueRange>.Success(valueRange);
             }
@@ -109,11 +110,7 @@ namespace DCAF.Google
             if (!credentialsFile.Exists)
                 throw new FileNotFoundException($"Credentials file not found: {credentialsFile.FullName}");
                 
-#if NET5_0_OR_GREATER            
             await using var stream = new FileStream(credentialsFile.FullName, FileMode.Open, FileAccess.Read);
-#else
-            using var stream = new FileStream(credentialsFile.FullName, FileMode.Open, FileAccess.Read);
-#endif            
             var credential =  (await GoogleCredential.FromStreamAsync(stream, CancellationToken.None)).CreateScoped(s_scopes);
             return new GoogleSheet(args, credential);
         }

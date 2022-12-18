@@ -6,6 +6,8 @@ namespace DCAF.Discord
 {
     public interface IDiscordGuild
     {
+        ulong GuildId { get; }
+        
         Task<SocketGuild> GetSocketGuildAsync();
 
         Task<Outcome<SocketGuildUser>> GetUserWithDiscordNameAsync(DiscordName discordName);

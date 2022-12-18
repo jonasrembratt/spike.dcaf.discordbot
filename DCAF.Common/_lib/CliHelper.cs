@@ -17,7 +17,10 @@ namespace DCAF._lib
         const string DateTimeFormatIso2 = "yyyy-M-dTHH:mm";
         const string DateTimeFormatIso3 = "yyyy-MM-dd"; 
         const string DateTimeFormatIso4 = "yyyy-M-d";
+        const string DateTimeFormatGoogle1 = "M/d/yyyy H:mm:ss";
+        // const string DateTimeFormatGoogle2 = "M/d/yyyy HH:mm:ss"; obsolete 
         static readonly string[] DateTimeIsoFormats = { DateTimeFormatIso1, DateTimeFormatIso2, DateTimeFormatIso3, DateTimeFormatIso4 };
+        static readonly string[] DateTimeGoogleFormats = { DateTimeFormatGoogle1 };
 
         public static Outcome<TimeFrame> GetTimeFrame(this string[] args, TimeFrame? defaultTimeFrame)
         {
@@ -47,6 +50,11 @@ namespace DCAF._lib
                 : Outcome<TimeFrame>.Success(new TimeFrame(from!.Value, to!.Value));
         }
 
+        public static bool TryParseGoogleDateTime(this string self, out DateTime value)
+        {
+            return DateTime.TryParseExact(self, DateTimeGoogleFormats, null, DateTimeStyles.None, out value);
+        }
+        
         public static bool TryGetValue(
             this string[] args,
 #if NET5_0_OR_GREATER     

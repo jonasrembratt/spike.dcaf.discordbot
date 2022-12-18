@@ -1,12 +1,12 @@
-using System;
 using System.Diagnostics;
 using DCAF._lib;
 using TetraPak.XP;
+using TetraPak.XP.StringValues;
 
 namespace DCAF.Model
 {
     [DebuggerDisplay("{ToString()}")]
-    public class PersonnelName : MultiStringValue //  IStringValue obsolete
+    public sealed class PersonnelName : MultiStringValue //  IStringValue obsolete
     {
         const char CallsignQualifier1 = '\''; 
         const char CallsignQualifier2 = '\"'; 
@@ -36,7 +36,7 @@ namespace DCAF.Model
                 return StringValueParseResult.Empty;
             }
 
-            var split = stringValue!.SplitAndTrim(new[] { CallsignQualifier1, CallsignQualifier2 }, true);
+            var split = stringValue.SplitAndTrim(new[] { CallsignQualifier1, CallsignQualifier2 }, true);
             switch (split.Length)
             {
                 case 1:

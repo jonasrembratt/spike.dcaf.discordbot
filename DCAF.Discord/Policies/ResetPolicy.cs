@@ -3,15 +3,21 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Configuration;
 using TetraPak.XP;
-using TetraPak.XP.Logging;
+using TetraPak.XP.Logging.Abstractions;
 
 namespace DCAF.Discord.Policies
 {
-    public class ResetPolicy : Policy<PolicyResult>
+    public sealed class ResetPolicy : Policy
     {
         const string IdentAll = "all";
         
+        public override Task<Outcome> ExecuteAsync(IConfiguration? config)
+        {
+            throw new NotImplementedException();
+        }
+
         public async Task<Outcome<PolicyResult>> ExecuteAsync(PolicyArgs e)
         {
             var args = e.Parameters;

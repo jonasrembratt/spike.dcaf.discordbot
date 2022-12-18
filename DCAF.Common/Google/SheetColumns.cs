@@ -2,7 +2,7 @@ using System;
 
 namespace DCAF.Google
 {
-    public class SheetColumns
+    public sealed class SheetColumns
     {
         public string First { get;  }
         public string? Last { get; }

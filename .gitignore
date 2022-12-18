@@ -1,3 +1,8 @@
+.vs/
+
+bin/
+
+obj/
 
 dcaf.discordbot/bin/
 
@@ -6,3 +11,9 @@ dcaf.discordbot/obj/
 UnitTests/bin/
 
 UnitTests/obj/
+
+*.dll
+
+*.exe
+
+*.pdb

@@ -1,7 +1,7 @@
 using System;
 using System.Diagnostics;
 using DCAF._lib;
-using TetraPak.XP;
+using TetraPak.XP.StringValues;
 
 #pragma warning disable CS0659
 #pragma warning disable CS8618
@@ -10,13 +10,13 @@ using TetraPak.XP;
 namespace DCAF.Discord
 {
     [DebuggerDisplay("{ToString()}")]
-    public class DiscordName : MultiStringValue
+    public sealed class DiscordName : MultiStringValue
     {
         public string? Discriminator { get; private set; }
 
         public string Name { get; private set; }
 
-        protected bool Equals(DiscordName other) 
+        bool Equals(DiscordName other) 
             =>
             string.Equals(Discriminator, other.Discriminator, StringComparison.InvariantCultureIgnoreCase) 
             && string.Equals(Name, other.Name, StringComparison.InvariantCultureIgnoreCase);
@@ -51,7 +51,7 @@ namespace DCAF.Discord
                     throw new FormatException($"Invalid Discord name: {stringValue}");
                 
                 case 1:
-                    stringValue = Name = stringValue.Trim();
+                    stringValue = Name = stringValue!.Trim();
                     break;
                 
                 default:
@@ -64,11 +64,13 @@ namespace DCAF.Discord
             return new StringValueParseResult(stringValue, stringValue.GetHashCode());
         }
 
-        public DiscordName(string name) : base(name, "#")
+        public DiscordName(string name) 
+        : base(name, "#")
         {
         }
         
-        public DiscordName(string name, string discriminator) : base($"{name}#{discriminator}")
+        public DiscordName(string name, string discriminator) 
+        : base($"{name}#{discriminator}")
         {
         }
     }

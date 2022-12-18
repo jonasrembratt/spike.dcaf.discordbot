@@ -2,15 +2,20 @@ using System;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
-using DCAF.DiscordBot.Model;
-using TetraPak.XP.Logging;
+using TetraPak.XP.Logging.Abstractions;
 
 namespace DCAF.Model
 {
     [DebuggerDisplay("{ToString()}")]
-    public class GuildEvent
+    public sealed class GuildEvent
     {
-        static readonly string[] s_dateTimeFormats =  { "dd-MM-yyyy", "d-M-yyyy", "yyyy-MM-ddTHH:mm:ss.ffffff" };
+        static readonly string[] s_dateTimeFormats =  
+        { 
+            "dd-MM-yyyy", 
+            "d-M-yyyy", 
+            "yyyy-MM-ddTHH:mm:ss.fff", 
+            "yyyy-MM-ddTHH:mm:ss.ffffff" 
+        };
 
         public string Title { get; }
         
@@ -70,7 +75,7 @@ namespace DCAF.Model
     }
 
     [DebuggerDisplay("{ToString()}")]
-    public class GuildEventSignup
+    public sealed class GuildEventSignup
     {
         static readonly string[] s_dateTimeFormats = { "yyyy-MM-ddTHH:mm:ss.ffffff" };
         

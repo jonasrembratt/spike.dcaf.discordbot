@@ -10,7 +10,7 @@ namespace DCAF.Model
             var ident = s.ToIdentifier(IdentCasing.Pascal);
             if (Enum.TryParse<MemberStatus>(ident, true, out var e))
             {
-                status = (MemberStatus) e!;
+                status = e;
                 return true;
             }
 

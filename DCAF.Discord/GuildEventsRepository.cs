@@ -5,19 +5,17 @@ using System.Net.Http;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using DCAF._lib;
-using DCAF.DiscordBot.Model;
 using DCAF.Model;
 using Discord;
 using TetraPak.XP;
 using TetraPak.XP.Configuration;
-using TetraPak.XP.Logging;
+using TetraPak.XP.Logging.Abstractions;
 using TetraPak.XP.Web.Http;
 
 namespace DCAF.Discord
 {
     // todo Support caching events
-    public class GuildEventsRepository
+    public sealed class GuildEventsRepository
     {
         const ulong RaidHelperId = 579155972115660803;
 
@@ -36,7 +34,7 @@ namespace DCAF.Discord
             bool breakOnFailure = true)
         {
             cancellationToken ??= CancellationToken.None;
-            DateTime? expire = timeout is { } ? DateTime.Now.Add(timeout.Value) : null;
+            DateTime? expire = timeout is { } ? XpDateTime.Now.Add(timeout.Value) : null;
             return Task.Run(async () =>
             {
                 var result = new List<GuildEvent>();
@@ -95,7 +93,7 @@ namespace DCAF.Discord
 
                 bool isCancelled() => cancellationToken.Value.IsCancellationRequested;
 
-                bool isExpired() => expire is {} && DateTime.Now >= expire; 
+                bool isExpired() => expire is {} && XpDateTime.Now >= expire; 
 
             });
         }
@@ -163,13 +161,13 @@ namespace DCAF.Discord
             var eventList = new List<GuildEvent>();
             var ct = CancellationToken.None;
             
-            for (var c = 0; c < _config.Events!.Channels.Length; c++)
+            for (var c = 0; c < _config.Events.Channels.Length; c++)
             {
                 var socketGuild = await _guild.GetSocketGuildAsync();
-                var channelId = _config.Events!.Channels[c];
+                var channelId = _config.Events.Channels[c];
                 if (socketGuild.GetChannel(channelId) is not IMessageChannel channel)
                     throw new ConfigurationException($"Channel is not supported: {channelId}" +
-                                                     $"({new ConfigPath(_config.Events!.Path).Push(nameof(EventsConfiguration.Channels))}[{c}])");
+                                                     $"({new ConfigPath(_config.Events.Path).Push(nameof(EventsConfiguration.Channels))}[{c}])");
 
                 var eventsOutcome = await channel.GetFilteredMessagesAsync(e =>
                     {
@@ -193,9 +191,14 @@ namespace DCAF.Discord
                 {
                     var rhEventOutcome = await getEventFromRaidHelper(evt.Id, ct);
                     if (!rhEventOutcome)
-                        return Outcome<GuildEvent[]>.Fail(rhEventOutcome.Exception!);
+                        continue;
 
                     var rhEvent = rhEventOutcome.Value!;
+                    if (rhEvent.IsCorrupt)
+                    {
+                        _log.Warning($"Corrupt RaidHelper event: {rhEvent}");
+                        continue;
+                    }
                     var guildEvent = new GuildEvent(rhEvent, _log);
                     eventList.Add(guildEvent);
                 }
@@ -203,11 +206,7 @@ namespace DCAF.Discord
             return Outcome<GuildEvent[]>.Success(eventList.ToArray());
             
             bool isEvent(IMessage message) => message.Author.Id == RaidHelperId;
-            
-            
         }
-        
-        
 
         async Task<Outcome<RaidHelperEvent>> getEventFromRaidHelper(ulong eventId, CancellationToken cancellationToken)
         {
@@ -240,7 +239,9 @@ namespace DCAF.Discord
             try
             {
                 var rhEvent = await JsonSerializer.DeserializeAsync<RaidHelperEvent>(stream, cancellationToken: cancellationToken);
-                return Outcome<RaidHelperEvent>.Success(rhEvent!);
+                return rhEvent is null || rhEvent.IsEmpty
+                    ? Outcome<RaidHelperEvent>.Fail("Event is empty/unassigned") 
+                    : Outcome<RaidHelperEvent>.Success(rhEvent!);
             }
             catch (Exception ex)
             {
@@ -279,8 +280,8 @@ namespace DCAF.Discord
             ReadEventsAsync(timeframe);
         }
     }
-    
-    class EventsCollection
+
+    sealed class EventsCollection
     {
         readonly List<GuildEvent> _events = new();
 
@@ -342,7 +343,7 @@ namespace DCAF.Discord
                 RatelimitCallback = onRateLimit
             };
 
-            DateTime? expires = timeout is {} ? DateTime.Now.Add(timeout.Value) : null;
+            DateTime? expires = timeout is {} ? XpDateTime.Now.Add(timeout.Value) : null;
             while (!done && !isExpiredOrCancelled())
             {
                 if (limitReached)
@@ -395,7 +396,7 @@ namespace DCAF.Discord
                 ? Outcome<IMessage[]>.Fail("Reading messages was cancelled or timed out") 
                 : Outcome<IMessage[]>.Success(messages.ToArray());
 
-            bool isExpiredOrCancelled() => DateTime.Now >= expires || ct.IsCancellationRequested;
+            bool isExpiredOrCancelled() => XpDateTime.Now >= expires || ct.IsCancellationRequested;
 
             Task onRateLimit(IRateLimitInfo info)
             {
@@ -412,7 +413,7 @@ namespace DCAF.Discord
 
     public delegate void ReadFilteredMessageDelegate(ReadMessagesFilterArgs args);
     
-    public class ReadMessagesFilterArgs
+    public sealed class ReadMessagesFilterArgs
     {
         public IMessage[] Downloaded { get; }
 

@@ -9,7 +9,7 @@ namespace DCAF.Model
     {
         event EventHandler Ready;
 
-        Task<Outcome<IEnumerable<T>>> GetAllMembers();
+        Task<EnumOutcome<T>> GetAllMembers();
 
         Task<Outcome<T>> GetMemberWithIdAsync(string id);
 
